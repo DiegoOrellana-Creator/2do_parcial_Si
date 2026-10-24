@@ -1,0 +1,57 @@
+# Secretos y configuración local: la imagen recibe la configuración por variables de entorno.
+.env
+.env.*
+!.env.example
+auth.json
+
+# Control de versiones y editores
+.git
+.gitignore
+.gitattributes
+.github
+.claude
+.idea
+.vscode
+.fleet
+.nova
+.zed
+*.log
+Thumbs.db
+.DS_Store
+
+# Dependencias y compilados: se instalan y compilan dentro de la imagen
+node_modules
+vendor
+public/build
+public/hot
+public/storage
+
+# Cachés generadas en local (pueden referirse a paquetes de desarrollo)
+bootstrap/cache/*.php
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+storage/pail
+storage/*.key
+
+# Copias de la base de datos y bases locales: nunca dentro de la imagen
+*.dump
+*.backup
+*.sql.gz
+database/*.sqlite
+database/*.sqlite-journal
+
+# Pruebas y herramientas de desarrollo
+tests
+phpunit.xml
+.phpunit.cache
+.phpunit.result.cache
+.phpactor.json
+Homestead.json
+Homestead.yaml
+
+# Archivos de Docker que no forman parte de la aplicación
+Dockerfile
+.dockerignore
