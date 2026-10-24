@@ -11,26 +11,45 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <!-- Estilos -->
+        <link rel="stylesheet" href="{{ asset('css/clinica.css') }}">
     </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
-            @include('layouts.navigation')
+    <body class="app-body">
+        <div class="app">
+            <!-- Menú lateral (escritorio) -->
+            <aside class="sidebar">
+                <div class="sidebar__brand">
+                    <a href="{{ route('dashboard') }}">
+                        <x-application-logo />
+                    </a>
+                </div>
 
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
+                <div class="sidebar__nav">
+                    @include('layouts.partials.sidebar', ['menuLabel' => 'Menú principal'])
+                </div>
 
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
-            </main>
+                <div class="sidebar__footer">
+                    Clínica Santa Cruz · Sistema de citas médicas
+                </div>
+            </aside>
+
+            <div class="app__main">
+                @include('layouts.partials.topbar')
+
+                <!-- Page Heading -->
+                @isset($header)
+                    <header class="page-header">
+                        <div class="page-header__inner">
+                            {{ $header }}
+                        </div>
+                    </header>
+                @endisset
+
+                <!-- Page Content -->
+                <main class="app__content">
+                    {{ $slot }}
+                </main>
+            </div>
         </div>
     </body>
 </html>

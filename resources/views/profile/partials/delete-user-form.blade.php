@@ -1,52 +1,54 @@
-<section class="space-y-6">
+<section>
     <header>
-        <h2 class="text-lg font-medium text-gray-900">
+        <h2 class="section-title">
             {{ __('Delete Account') }}
         </h2>
 
-        <p class="mt-1 text-sm text-gray-600">
+        <p class="section-text">
             {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Before deleting your account, please download any data or information that you wish to retain.') }}
         </p>
     </header>
 
-    <x-danger-button
-        x-data=""
-        x-on:click.prevent="$dispatch('open-modal', 'confirm-user-deletion')"
-    >{{ __('Delete Account') }}</x-danger-button>
+    {{--
+        Confirmación sin JavaScript: el botón abre la ventana (<details>), pero la
+        cuenta solo se elimina al escribir la contraseña y pulsar el botón del formulario.
+    --}}
+    <x-modal name="confirm-user-deletion" :show="$errors->userDeletion->isNotEmpty()" trigger-class="btn btn--danger" class="form-stack">
+        <x-slot name="trigger">{{ __('Delete Account') }}</x-slot>
 
-    <x-modal name="confirm-user-deletion" :show="$errors->userDeletion->isNotEmpty()" focusable>
-        <form method="post" action="{{ route('profile.destroy') }}" class="p-6">
+        <form method="post" action="{{ route('profile.destroy') }}" class="modal__body">
             @csrf
             @method('delete')
 
-            <h2 class="text-lg font-medium text-gray-900">
+            <h2 class="section-title">
                 {{ __('Are you sure you want to delete your account?') }}
             </h2>
 
-            <p class="mt-1 text-sm text-gray-600">
+            <p class="section-text">
                 {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.') }}
             </p>
 
-            <div class="mt-6">
+            <div class="modal__field">
                 <x-input-label for="password" value="{{ __('Password') }}" class="sr-only" />
 
                 <x-text-input
                     id="password"
                     name="password"
                     type="password"
-                    class="mt-1 block w-3/4"
+                    class="form-input--narrow"
                     placeholder="{{ __('Password') }}"
                 />
 
-                <x-input-error :messages="$errors->userDeletion->get('password')" class="mt-2" />
+                <x-input-error :messages="$errors->userDeletion->get('password')" />
             </div>
 
-            <div class="mt-6 flex justify-end">
-                <x-secondary-button x-on:click="$dispatch('close')">
+            <div class="modal__actions">
+                {{-- Cerrar sin JavaScript: recarga el perfil con la ventana cerrada --}}
+                <a href="{{ route('profile.edit') }}" class="btn btn--secondary">
                     {{ __('Cancel') }}
-                </x-secondary-button>
+                </a>
 
-                <x-danger-button class="ms-3">
+                <x-danger-button>
                     {{ __('Delete Account') }}
                 </x-danger-button>
             </div>
