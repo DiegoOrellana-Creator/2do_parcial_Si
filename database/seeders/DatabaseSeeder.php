@@ -2,24 +2,22 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
+     *
+     * Antes creaba un «Test User» con la columna `name`, que no existe en `users`
+     * y hacía fallar el comando. Ahora ejecuta la población de prueba, que es
+     * idempotente y no modifica registros existentes.
+     *
+     * La asignación del rol a la cuenta administrativa existente es aparte y opcional:
+     *   php artisan db:seed --class=AdministradorExistenteSeeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->call(PoblacionPruebaSeeder::class);
     }
 }

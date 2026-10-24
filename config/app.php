@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Hora local de la clínica (la misma que usa PostgreSQL). Con UTC, now() iba 4 horas
+    // adelantado y las franjas de hoy aparecían como «Pasada» antes de tiempo.
+    'timezone' => env('APP_TIMEZONE', 'America/La_Paz'),
 
     /*
     |--------------------------------------------------------------------------

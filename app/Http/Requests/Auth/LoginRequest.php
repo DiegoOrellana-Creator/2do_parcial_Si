@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
+use App\Services\Auditoria;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,11 +44,20 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        // Solo se autentican las cuentas activas: la condición se añade a la búsqueda del
+        // usuario, así que una cuenta inactiva se trata igual que unas credenciales incorrectas.
+        $credenciales = [...$this->only('email', 'password'), 'estado' => User::ESTADO_ACTIVO];
+
+        if (! Auth::attempt($credenciales, $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
+            // Bitácora: sin guardar lo escrito; solo la cuenta afectada si el correo existe.
+            $idCuenta = User::where('email', (string) $this->string('email'))->value('id');
+            Auditoria::registrar(Auditoria::INICIO_FALLIDO, Auditoria::SESION, $idCuenta, 'Credenciales no válidas o cuenta inactiva.', $idCuenta);
+
+            // Mensaje genérico: no revela si el correo existe, si la contraseña falló o si la cuenta está inactiva.
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => 'No se pudo iniciar sesión con esos datos. Verifica tu correo y contraseña o contacta con la clínica.',
             ]);
         }
 

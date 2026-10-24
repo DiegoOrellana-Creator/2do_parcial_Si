@@ -21,13 +21,15 @@ $iniciales = Str::upper(Str::substr($user->nombre ?? '', 0, 1) . Str::substr($us
         <x-application-logo />
     </a>
 
-    <!-- Buscador: solo visual hasta que exista la búsqueda -->
-    <div class="topbar__search">
-        <label for="busqueda-global" class="sr-only">Buscar</label>
-        <x-admin.icon name="magnifying-glass" class="icon--sm" />
-        <input id="busqueda-global" type="search" disabled
-               placeholder="Buscar pacientes, médicos o citas (próximamente)" />
-    </div>
+    <!-- Buscador (solo personal de la clínica): visual hasta que exista la búsqueda -->
+    @if ($user->perfil() === \App\Models\User::PERFIL_PERSONAL)
+        <div class="topbar__search">
+            <label for="busqueda-global" class="sr-only">Buscar</label>
+            <x-admin.icon name="magnifying-glass" class="icon--sm" />
+            <input id="busqueda-global" type="search" disabled
+                   placeholder="Buscar pacientes, médicos o citas (próximamente)" />
+        </div>
+    @endif
 
     <div class="topbar__actions">
         <!-- Notificaciones: solo visual hasta que exista el módulo -->
