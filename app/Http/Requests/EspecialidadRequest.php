@@ -10,7 +10,8 @@ use Illuminate\Validation\Rule;
 
 /**
  * Validación de especialidades según la tabla `especialidad`:
- * nombre varchar(100) NOT NULL, descripcion text NULL, estado varchar(20) NOT NULL.
+ * nombre varchar(100) NOT NULL, descripcion text NULL, estado varchar(20) NOT NULL,
+ * precio numeric(10,2) NULL.
  */
 class EspecialidadRequest extends FormRequest
 {
@@ -46,6 +47,8 @@ class EspecialidadRequest extends FormRequest
             ],
             'descripcion' => ['nullable', 'string', 'max:1000'],
             'estado' => ['required', Rule::in(Especialidad::ESTADOS)],
+            // Opcional: si el formulario no lo envía, el precio guardado no cambia.
+            'precio' => ['nullable', 'numeric', 'gt:0', 'lte:99999999.99', 'decimal:0,2'],
         ];
     }
 
@@ -59,6 +62,10 @@ class EspecialidadRequest extends FormRequest
             'string' => 'El campo :attribute debe ser texto.',
             'max' => 'El campo :attribute no debe superar los :max caracteres.',
             'in' => 'El valor seleccionado en :attribute no es válido.',
+            'precio.numeric' => 'El precio debe ser un número.',
+            'precio.gt' => 'El precio debe ser mayor que 0.',
+            'precio.lte' => 'El precio es demasiado alto.',
+            'precio.decimal' => 'El precio puede tener como máximo 2 decimales.',
         ];
     }
 
@@ -71,6 +78,7 @@ class EspecialidadRequest extends FormRequest
             'nombre' => 'nombre',
             'descripcion' => 'descripción',
             'estado' => 'estado',
+            'precio' => 'precio',
         ];
     }
 }

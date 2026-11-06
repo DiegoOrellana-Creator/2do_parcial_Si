@@ -48,6 +48,8 @@ class Auditoria
 
     public const CAMBIO_ESTADO = 'Cambio de estado';
 
+    public const REPROGRAMAR = 'Reprogramación';
+
     public const CAMBIO_CONTRASENA = 'Cambio de contraseña';
 
     /** Campos que nunca se nombran ni se guardan en el detalle. */
@@ -55,13 +57,11 @@ class Auditoria
 
     /**
      * @param  ?int  $idUsuario  autor; por defecto, la cuenta autenticada.
-     * @param  bool  $sinUsuario  registrar sin autor (por ejemplo, cuando la cuenta acaba de eliminarse).
      */
-    public static function registrar(string $accion, string $modulo, ?int $idRegistro = null, ?string $detalle = null,
-        ?int $idUsuario = null, bool $sinUsuario = false): void
+    public static function registrar(string $accion, string $modulo, ?int $idRegistro = null, ?string $detalle = null, ?int $idUsuario = null): void
     {
         $fila = [
-            'id_usuario' => $sinUsuario ? null : ($idUsuario ?? Auth::id()),
+            'id_usuario' => $idUsuario ?? Auth::id(),
             'fecha_hora' => now(),
             'accion' => Str::limit($accion, 100, ''),
             'modulo' => Str::limit($modulo, 100, ''),

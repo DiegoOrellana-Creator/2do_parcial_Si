@@ -59,6 +59,7 @@
                             <tr>
                                 <th scope="col">Especialidad</th>
                                 <th scope="col">Médicos</th>
+                                <th scope="col">Precio</th>
                                 <th scope="col">Estado</th>
                                 <th scope="col"><span class="sr-only">Acciones</span></th>
                             </tr>
@@ -73,6 +74,7 @@
                                         @endif
                                     </td>
                                     <td data-label="Médicos">{{ $especialidad->total_medicos }}</td>
+                                    <td data-label="Precio">{{ $especialidad->precio !== null ? 'Bs ' . number_format((float) $especialidad->precio, 2) : 'Sin precio' }}</td>
                                     <td data-label="Estado">@include('especialidades.partials.estado')</td>
                                     <td class="cell-actions">
                                         <a href="{{ route('especialidades.show', $especialidad) }}" class="btn btn--secondary btn--sm">

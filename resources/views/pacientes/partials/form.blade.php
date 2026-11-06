@@ -95,6 +95,19 @@ $editando = $paciente->exists;
             <p id="username-ayuda" class="field-hint">Letras, números, guiones y guiones bajos, sin espacios.</p>
             <x-input-error :messages="$errors->get('username')" />
         </div>
+
+        @if ($editando && auth()->user()->esAdministrador())
+            <div>
+                <x-input-label for="estado" value="Estado de la cuenta" />
+                <select id="estado" name="estado" class="form-input" aria-describedby="estado-ayuda" @error('estado') aria-invalid="true" @enderror>
+                    @foreach (\App\Models\User::ESTADOS as $valor)
+                        <option value="{{ $valor }}" @selected(old('estado', $usuario?->estado) === $valor)>{{ $valor }}</option>
+                    @endforeach
+                </select>
+                <p id="estado-ayuda" class="field-hint">Una cuenta inactiva no puede iniciar sesión y conserva todos sus datos.</p>
+                <x-input-error :messages="$errors->get('estado')" />
+            </div>
+        @endif
     </div>
 
     @unless ($editando)

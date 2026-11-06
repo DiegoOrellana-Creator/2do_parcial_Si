@@ -8,7 +8,6 @@ use App\Models\Medico;
 use App\Models\User;
 use App\Services\Auditoria;
 use App\Services\DependenciasUsuario;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -31,7 +30,6 @@ class MedicoController extends Controller implements HasMiddleware
             new Middleware('can:medicos.ver', only: ['index', 'show']),
             new Middleware('can:medicos.crear', only: ['create', 'store']),
             new Middleware('can:medicos.editar', only: ['edit', 'update']),
-            new Middleware('can:medicos.eliminar', only: ['destroy']),
         ];
     }
 
@@ -127,12 +125,7 @@ class MedicoController extends Controller implements HasMiddleware
             'bloqueos' => $dependencias->bloqueosAgendaComoMedico(),
         ];
 
-        $eliminacion = [
-            'impedimentos' => $dependencias->impedimentosParaEliminarMedico(),
-            'conservarCuenta' => $dependencias->motivosParaConservarCuentaDeMedico(),
-        ];
-
-        return view('medicos.show', compact('medico', 'resumen', 'eliminacion'));
+        return view('medicos.show', compact('medico', 'resumen'));
     }
 
     public function edit(Medico $medico): View
@@ -200,68 +193,6 @@ class MedicoController extends Controller implements HasMiddleware
         return redirect()
             ->route('medicos.show', $medico)
             ->with('status', 'Datos del médico actualizados correctamente.');
-    }
-
-    public function destroy(Request $request, Medico $medico): RedirectResponse
-    {
-        $id = (int) $medico->id_medico;
-
-        if ($id === (int) $request->user()->id) {
-            return back()->with('error', 'No puedes eliminar tu propio registro de médico.');
-        }
-
-        $nombre = $medico->usuario ? $medico->usuario->nombre . ' ' . $medico->usuario->apellido : "#{$id}";
-
-        try {
-            $resultado = DB::transaction(function () use ($id) {
-                // Se bloquean primero las filas (usuario y luego médico). Mientras dure la transacción,
-                // un INSERT concurrente en citas, horarios o bloqueos de este médico queda en espera.
-                $usuario = User::whereKey($id)->lockForUpdate()->first();
-                $ficha = Medico::whereKey($id)->lockForUpdate()->first();
-
-                if (! $usuario || ! $ficha) {
-                    return ['error' => 'El médico ya no existe.'];
-                }
-
-                $dependencias = new DependenciasUsuario($id);
-
-                // Las citas (con pagos e historial), los horarios y los bloqueos se borrarían en cascada.
-                if ($impedimentos = $dependencias->impedimentosParaEliminarMedico()) {
-                    return ['error' => 'No se puede eliminar al médico porque ' . implode(' y ', $impedimentos)
-                        . '. Puedes desactivarlo desde «Editar».'];
-                }
-
-                // Si la cuenta tiene otros roles, es paciente o figura en la auditoría, solo se quita la ficha.
-                if ($motivos = $dependencias->motivosParaConservarCuentaDeMedico()) {
-                    $ficha->delete();
-
-                    return ['status' => 'Se eliminó la ficha de médico y sus especialidades asignadas. La cuenta de acceso se conservó porque '
-                        . implode(' y ', $motivos) . '.'];
-                }
-
-                // Borra la cuenta; en cascada se eliminan la ficha de médico y sus especialidades asignadas.
-                $usuario->delete();
-
-                return ['status' => 'Médico eliminado correctamente.'];
-            });
-        } catch (QueryException $e) {
-            // 23503: la base de datos rechazó el borrado por una clave foránea (protección RESTRICT).
-            if ($e->getCode() === '23503') {
-                return back()->with('error', 'La base de datos impidió eliminar al médico porque tiene registros relacionados.');
-            }
-
-            throw $e;
-        }
-
-        if (isset($resultado['error'])) {
-            return back()->with('error', $resultado['error']);
-        }
-
-        Auditoria::registrar(Auditoria::ELIMINAR, Auditoria::MEDICOS, $id, "Médico «{$nombre}». {$resultado['status']}");
-
-        return redirect()
-            ->route('medicos.index')
-            ->with('status', $resultado['status']);
     }
 
     /**

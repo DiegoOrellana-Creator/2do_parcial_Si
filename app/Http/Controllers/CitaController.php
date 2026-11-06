@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CitaRequest;
+use App\Http\Requests\ReprogramacionCitaRequest;
 use App\Models\Cita;
 use App\Models\Especialidad;
 use App\Models\HistorialEstadoCita;
@@ -23,8 +24,8 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * Gestión de citas del Ciclo 1: listar, consultar, registrar y cancelar.
- * Confirmar, reprogramar y registrar asistencia corresponden al Ciclo 2.
+ * Gestión de citas: listar, consultar, registrar, reprogramar y cancelar.
+ * Confirmar y registrar asistencia corresponden al Ciclo 2.
  */
 class CitaController extends Controller implements HasMiddleware
 {
@@ -34,6 +35,7 @@ class CitaController extends Controller implements HasMiddleware
             new Middleware('can:citas.ver', only: ['index', 'show']),
             new Middleware('can:citas.crear', only: ['create', 'store']),
             new Middleware('can:citas.cancelar', only: ['cancelar']),
+            new Middleware('can:citas.reprogramar', only: ['reprogramar', 'guardarReprogramacion']),
         ];
     }
 
@@ -121,6 +123,50 @@ class CitaController extends Controller implements HasMiddleware
         $cita->load(['paciente.usuario', 'medico.usuario', 'especialidad', 'historial.registradoPor', 'canceladoPor']);
 
         return view('citas.show', compact('cita'));
+    }
+
+    public function reprogramar(Request $request, Cita $cita, Disponibilidad $disponibilidad): View|RedirectResponse
+    {
+        if (! $cita->esCancelable()) {
+            return redirect()->route('citas.show', $cita)
+                ->with('error', 'La cita ya no se puede reprogramar: solo se reprograman citas programadas o confirmadas que todavía no empezaron.');
+        }
+
+        $cita->load(['paciente.usuario', 'medico.usuario', 'especialidad']);
+
+        // La especialidad es siempre la de la cita; la fecha propuesta, la que tiene ahora.
+        $request->query->set('especialidad', (string) $cita->id_especialidad);
+        if (! $request->query->has('fecha')) {
+            $request->query->set('fecha', substr($cita->fecha_cita, 0, 10));
+        }
+        $consulta = DisponibilidadController::validarConsulta($request);
+
+        return view('citas.reprogramar', [
+            'cita' => $cita,
+            'especialidades' => collect([$cita->especialidad]),
+            'medicos' => $disponibilidad->medicosActivosDe((int) $cita->id_especialidad),
+            'consulta' => $consulta,
+            'resultados' => $consulta['valida'] ? $disponibilidad->porEspecialidad($cita->especialidad, $consulta['fecha'], $consulta['medico'] ?: null) : null,
+        ]);
+    }
+
+    public function guardarReprogramacion(ReprogramacionCitaRequest $request, Cita $cita, RegistroCita $registro): RedirectResponse
+    {
+        $datos = $request->validated();
+        [$idMedico, $hora] = $request->franjaElegida();
+
+        $cita = $registro->reprogramar(
+            $cita,
+            $idMedico,
+            CarbonImmutable::createFromFormat('Y-m-d', $datos['fecha'])->startOfDay(),
+            $hora,
+            $datos['motivo_reprogramacion'],
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->route('citas.show', $cita)
+            ->with('status', "Cita {$cita->codigo} reprogramada correctamente.");
     }
 
     public function cancelar(Request $request, Cita $cita): RedirectResponse

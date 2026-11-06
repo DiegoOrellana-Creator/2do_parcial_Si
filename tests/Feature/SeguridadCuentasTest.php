@@ -48,51 +48,10 @@ class SeguridadCuentasTest extends TestCase
 
     // --- Cuenta administrativa principal ------------------------------------
 
-    public function test_la_cuenta_principal_sin_roles_no_puede_eliminarse_a_si_misma(): void
-    {
-        $this->assertSame(0, DB::table('usuario_rol')->where('id_usuario', $this->principal->id)->count());
-
-        $this->actingAs($this->principal)
-            ->delete(route('profile.destroy'), ['password' => 'password'])
-            ->assertRedirect(route('profile.edit'))
-            ->assertSessionHasErrorsIn('userDeletion', [
-                'cuenta' => 'No puedes eliminar tu cuenta porque es la cuenta administrativa principal del sistema. Solicita la baja al personal de la clínica.',
-            ]);
-
-        $this->assertAuthenticatedAs($this->principal);
-        $this->assertDatabaseHas('users', ['id' => 1, 'username' => 'admin', 'estado' => 'Activo']);
-    }
-
     public function test_solo_la_cuenta_principal_se_reconoce_como_tal(): void
     {
         $this->assertTrue((new DependenciasUsuario(1))->esCuentaPrincipal());
         $this->assertFalse((new DependenciasUsuario($this->usuario('otro')->id))->esCuentaPrincipal());
-    }
-
-    public function test_el_modulo_de_pacientes_nunca_borra_la_cuenta_principal(): void
-    {
-        $this->seed(PermisosPacientesSeeder::class);
-        $jefa = $this->usuario('jefa');
-        DB::table('usuario_rol')->insert(['id_usuario' => $jefa->id, 'id_rol' => DB::table('rol')->where('nombre', 'Administrador')->value('id_rol')]);
-        Paciente::create(['id_paciente' => $this->principal->id, 'inasistencia' => 0, 'bloqueado' => false]);
-
-        $this->actingAs($jefa)->delete(route('pacientes.destroy', $this->principal->id))
-            ->assertSessionHas('status', 'Se eliminó la ficha de paciente. La cuenta de acceso se conservó porque es la cuenta administrativa principal del sistema.');
-
-        $this->assertDatabaseHas('users', ['id' => 1, 'username' => 'admin']);
-        $this->assertDatabaseMissing('paciente', ['id_paciente' => 1]);
-    }
-
-    public function test_otras_cuentas_sin_vinculos_siguen_pudiendo_eliminarse(): void
-    {
-        $libre = $this->usuario('libre');
-
-        $this->actingAs($libre)
-            ->delete(route('profile.destroy'), ['password' => 'password'])
-            ->assertRedirect('/');
-
-        $this->assertGuest();
-        $this->assertDatabaseMissing('users', ['id' => $libre->id]);
     }
 
     // --- Inicio de sesión ----------------------------------------------------

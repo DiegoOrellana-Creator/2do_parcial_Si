@@ -30,16 +30,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 // Módulos de gestión: solo para el personal de la clínica y, además, cada acción exige
 // su permiso (ver el método middleware() de cada controlador).
 Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->group(function () {
-    Route::resource('pacientes', PacienteController::class);
+    // Las cuentas nunca se borran: pacientes y médicos no tienen ruta de eliminación; se desactivan.
+    Route::resource('pacientes', PacienteController::class)->except(['destroy']);
     Route::resource('especialidades', EspecialidadController::class)
         ->parameters(['especialidades' => 'especialidad']);
     Route::resource('medicos', MedicoController::class)
+        ->except(['destroy'])
         ->parameters(['medicos' => 'medico']);
     Route::resource('horarios', HorarioController::class)
         ->except(['show'])
@@ -49,6 +50,8 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
         ->only(['index', 'create', 'store', 'show'])
         ->parameters(['citas' => 'cita']);
     Route::patch('citas/{cita}/cancelar', [CitaController::class, 'cancelar'])->name('citas.cancelar');
+    Route::get('citas/{cita}/reprogramar', [CitaController::class, 'reprogramar'])->name('citas.reprogramar');
+    Route::patch('citas/{cita}/reprogramar', [CitaController::class, 'guardarReprogramacion'])->name('citas.reprogramar.guardar');
     // Solo lectura y solo para el administrador (Gate «bitacora.ver»).
     Route::get('bitacora', [BitacoraController::class, 'index'])->name('bitacora.index');
 });

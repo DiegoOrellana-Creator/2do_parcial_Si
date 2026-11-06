@@ -22,6 +22,10 @@
 
         @if ($resultados !== null && ! $paciente->bloqueado)
             <x-admin.card title="2. Médico y horario" :subtitle="$especialidad->nombre . ' · ' . Str::ucfirst($consulta['fecha']->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY'))">
+                @if ($especialidad->precio !== null)
+                    <p class="muted">Precio de la consulta: Bs {{ number_format((float) $especialidad->precio, 2) }}</p>
+                @endif
+
                 @php($hayLibres = $resultados->contains(fn ($r) => $r['libres']->isNotEmpty()))
 
                 @if (! $hayLibres)

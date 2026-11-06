@@ -25,74 +25,12 @@ $valor = fn ($dato) => filled($dato) ? $dato : null;
                 @can('pacientes.editar')
                     <a href="{{ route('pacientes.edit', $paciente) }}" class="btn btn--primary">Editar</a>
                 @endcan
-
-                @can('pacientes.eliminar')
-                    @if (empty($eliminacion['impedimentos']) && (int) $paciente->id_paciente !== (int) auth()->id())
-                        @php
-                            $conservaCuenta = ! empty($eliminacion['conservarCuenta']);
-                            $totalContactos = $paciente->contactosEmergencia->count();
-                        @endphp
-
-                        {{-- Confirmación sin JavaScript: el botón solo abre la ventana; el borrado exige pulsar «Eliminar definitivamente» --}}
-                        <x-modal name="confirmar-eliminacion" maxWidth="md" trigger-class="btn btn--danger">
-                            <x-slot name="trigger">Eliminar</x-slot>
-
-                            <form method="POST" action="{{ route('pacientes.destroy', $paciente) }}" class="modal__body">
-                                @csrf
-                                @method('DELETE')
-
-                                <h2 class="section-title">¿Eliminar a {{ $usuario->nombre }} {{ $usuario->apellido }}?</h2>
-
-                                <p class="section-text">Se eliminará definitivamente:</p>
-                                <ul class="delete-summary">
-                                    <li>La ficha de paciente{{ $paciente->nro_ficha ? ' (n.º ' . $paciente->nro_ficha . ')' : '' }}.</li>
-                                    @if ($info)
-                                        <li>Su información médica.</li>
-                                    @endif
-                                    @if ($totalContactos)
-                                        <li>{{ $totalContactos }} {{ $totalContactos === 1 ? 'contacto de emergencia' : 'contactos de emergencia' }}.</li>
-                                    @endif
-                                    @unless ($conservaCuenta)
-                                        <li>Su cuenta de acceso ({{ $usuario->username }}) con sus datos personales.</li>
-                                        @if ($eliminacion['notificaciones'])
-                                            <li>{{ $eliminacion['notificaciones'] }} {{ $eliminacion['notificaciones'] === 1 ? 'notificación' : 'notificaciones' }}.</li>
-                                        @endif
-                                        @if ($eliminacion['preferencias'])
-                                            <li>Sus preferencias de contacto.</li>
-                                        @endif
-                                    @endunless
-                                </ul>
-
-                                @if ($conservaCuenta)
-                                    <p class="section-text">
-                                        Su cuenta de acceso ({{ $usuario->username }}) y sus datos personales se conservarán porque {{ implode(' y ', $eliminacion['conservarCuenta']) }}.
-                                    </p>
-                                @endif
-
-                                <p class="section-text">No tiene citas ni bloqueos registrados. Esta acción no se puede deshacer.</p>
-
-                                <div class="modal__actions">
-                                    <a href="{{ route('pacientes.show', $paciente) }}" class="btn btn--secondary">Cancelar</a>
-                                    <x-danger-button>Eliminar definitivamente</x-danger-button>
-                                </div>
-                            </form>
-                        </x-modal>
-                    @endif
-                @endcan
             </div>
         </div>
     </x-slot>
 
     <div class="page">
         <x-admin.flash />
-
-        @can('pacientes.eliminar')
-            @if (! empty($eliminacion['impedimentos']))
-                <div class="notice notice--info">
-                    Este paciente no se puede eliminar porque {{ implode(' y ', $eliminacion['impedimentos']) }}.
-                </div>
-            @endif
-        @endcan
 
         <div class="dashboard-grid dashboard-grid--halves">
             <x-admin.card title="Datos personales">

@@ -159,6 +159,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Solo el administrador cambia sus propios datos en «Mi perfil». Los del paciente los actualiza
+     * el personal (módulo Pacientes) y los del médico, el administrador (módulo Médicos).
+     */
+    public function puedeEditarSusDatos(): bool
+    {
+        return $this->esAdministrador();
+    }
+
+    /**
      * Administrador de la clínica: cuenta principal, fila en `administrador` o rol activo
      * «Administrador», siempre con la cuenta activa y perfil de personal.
      */

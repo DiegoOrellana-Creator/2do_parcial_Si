@@ -101,7 +101,6 @@ class MedicosTest extends TestCase
         $this->actingAs($recepcion)->get(route('medicos.show', $medico))->assertOk();
         $this->actingAs($recepcion)->get(route('medicos.create'))->assertForbidden();
         $this->actingAs($recepcion)->get(route('medicos.edit', $medico))->assertForbidden();
-        $this->actingAs($recepcion)->delete(route('medicos.destroy', $medico))->assertForbidden();
     }
 
     // --- Registro y especialidades -----------------------------------------
@@ -288,7 +287,7 @@ class MedicosTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('medicos.show', $medico))
             ->assertOk()->assertSee('Patricia Rivero')->assertSee('Cardiología')->assertSee('Pediatría')
-            ->assertSee('no se puede eliminar porque tiene 1 horario de atención');
+            ->assertDontSee('Eliminar');
     }
 
     // --- Edición, especialidades y estado ----------------------------------
@@ -380,64 +379,6 @@ class MedicosTest extends TestCase
 
     // --- Eliminación -------------------------------------------------------
 
-    public function test_elimina_un_medico_sin_actividad(): void
-    {
-        $medico = $this->medico('libre', [$this->cardiologia]);
-        $id = $medico->id_medico;
-
-        $this->actingAs($this->admin)->get(route('medicos.show', $medico))->assertSee('Eliminar definitivamente')->assertSee('las especialidades no se borran');
-
-        $this->actingAs($this->admin)->delete(route('medicos.destroy', $medico))
-            ->assertRedirect(route('medicos.index'))
-            ->assertSessionHas('status', 'Médico eliminado correctamente.');
-
-        $this->assertDatabaseMissing('medico', ['id_medico' => $id]);
-        $this->assertDatabaseMissing('users', ['id' => $id]);
-        $this->assertDatabaseMissing('especialidad_medico', ['id_medico' => $id]);
-        $this->assertDatabaseHas('especialidad', ['id_especialidad' => $this->cardiologia->id_especialidad]);
-    }
-
-    public function test_no_elimina_un_medico_con_citas_horarios_o_bloqueos(): void
-    {
-        $conCita = $this->medico('con_cita', [$this->cardiologia]);
-        $this->cita($conCita, $this->cardiologia, now()->subDays(10)->toDateString(), 'Atendida');
-
-        $conHorario = $this->medico('con_horario', [$this->cardiologia]);
-        DB::table('horario_atencion')->insert(['id_medico' => $conHorario->id_medico, 'dia_semana' => 2, 'hora_inicio' => '08:00', 'hora_final' => '12:00']);
-
-        $conBloqueo = $this->medico('con_bloqueo', [$this->cardiologia]);
-        DB::table('bloqueo_agenda')->insert(['id_medico' => $conBloqueo->id_medico, 'fecha' => '2026-11-10', 'hora_inicio' => '08:00', 'hora_final' => '10:00']);
-
-        $casos = [
-            [$conCita, 'tiene 1 cita registrada', 'citas'],
-            [$conHorario, 'tiene 1 horario de atención', 'horario_atencion'],
-            [$conBloqueo, 'tiene 1 bloqueo de agenda', 'bloqueo_agenda'],
-        ];
-
-        foreach ($casos as [$medico, $motivo, $tabla]) {
-            $this->actingAs($this->admin)->get(route('medicos.show', $medico))->assertSee($motivo)->assertDontSee('Eliminar definitivamente');
-
-            $this->actingAs($this->admin)->delete(route('medicos.destroy', $medico))
-                ->assertSessionHas('error', "No se puede eliminar al médico porque {$motivo}. Puedes desactivarlo desde «Editar».");
-
-            $this->assertDatabaseHas('medico', ['id_medico' => $medico->id_medico]);
-            $this->assertDatabaseHas($tabla, ['id_medico' => $medico->id_medico]);
-        }
-    }
-
-    public function test_si_tambien_es_paciente_solo_se_quita_la_ficha_de_medico(): void
-    {
-        $medico = $this->medico('ambos', [$this->cardiologia]);
-        DB::table('paciente')->insert(['id_paciente' => $medico->id_medico, 'inasistencia' => 0, 'bloqueado' => false]);
-
-        $this->actingAs($this->admin)->delete(route('medicos.destroy', $medico))
-            ->assertSessionHas('status', 'Se eliminó la ficha de médico y sus especialidades asignadas. La cuenta de acceso se conservó porque también es paciente de la clínica.');
-
-        $this->assertDatabaseMissing('medico', ['id_medico' => $medico->id_medico]);
-        $this->assertDatabaseHas('users', ['id' => $medico->id_medico]);
-        $this->assertDatabaseHas('paciente', ['id_paciente' => $medico->id_medico]);
-    }
-
     // --- Vistas --------------------------------------------------------------
 
     public function test_las_vistas_usan_csrf_no_contienen_javascript_y_marcan_el_menu(): void
@@ -457,6 +398,6 @@ class MedicosTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('medicos.create'))->assertSee('name="_token"', false)->assertSee('name="especialidades[]"', false);
         $this->actingAs($this->admin)->get(route('medicos.edit', $medico))->assertSee('name="_method" value="PUT"', false);
-        $this->actingAs($this->admin)->get(route('medicos.show', $medico))->assertSee('name="_method" value="DELETE"', false);
+        $this->actingAs($this->admin)->get(route('medicos.show', $medico))->assertDontSee('name="_method" value="DELETE"', false);
     }
 }

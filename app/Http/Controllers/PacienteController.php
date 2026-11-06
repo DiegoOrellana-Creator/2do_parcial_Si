@@ -7,13 +7,13 @@ use App\Models\Paciente;
 use App\Models\User;
 use App\Services\Auditoria;
 use App\Services\DependenciasUsuario;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class PacienteController extends Controller implements HasMiddleware
@@ -27,7 +27,6 @@ class PacienteController extends Controller implements HasMiddleware
             new Middleware('can:pacientes.ver', only: ['index', 'show']),
             new Middleware('can:pacientes.crear', only: ['create', 'store']),
             new Middleware('can:pacientes.editar', only: ['edit', 'update']),
-            new Middleware('can:pacientes.eliminar', only: ['destroy']),
         ];
     }
 
@@ -120,16 +119,7 @@ class PacienteController extends Controller implements HasMiddleware
             ->orderByDesc('fecha_bloqueo')
             ->get();
 
-        // Datos para que la confirmación de borrado diga exactamente qué se eliminará.
-        $dependencias = new DependenciasUsuario((int) $paciente->id_paciente);
-        $eliminacion = [
-            'impedimentos' => $dependencias->impedimentosParaEliminarPaciente(),
-            'conservarCuenta' => $dependencias->motivosParaConservarCuenta(),
-            'notificaciones' => $dependencias->notificaciones(),
-            'preferencias' => $dependencias->tienePreferencias(),
-        ];
-
-        return view('pacientes.show', compact('paciente', 'citas', 'totalCitas', 'bloqueos', 'eliminacion'));
+        return view('pacientes.show', compact('paciente', 'citas', 'totalCitas', 'bloqueos'));
     }
 
     public function edit(Paciente $paciente): View
@@ -143,8 +133,19 @@ class PacienteController extends Controller implements HasMiddleware
     {
         $datos = $request->validated();
 
-        DB::transaction(function () use ($paciente, $datos) {
-            $paciente->usuario->update($this->datosUsuario($datos));
+        DB::transaction(function () use ($paciente, $datos, $request) {
+            // Mismo bloqueo que al registrar una cita: no puede aparecer una mientras se desactiva.
+            Paciente::whereKey($paciente->id_paciente)->lockForUpdate()->first();
+
+            $estadoAnterior = $paciente->usuario->estado;
+            $estadoNuevo = $datos['estado'] ?? $estadoAnterior;
+
+            // Desactivar: la cuenta deja de poder iniciar sesión y se conservan todos sus datos.
+            if ($estadoNuevo !== User::ESTADO_ACTIVO && $estadoAnterior === User::ESTADO_ACTIVO) {
+                $this->comprobarDesactivacion((int) $paciente->id_paciente, (int) $request->user()->id);
+            }
+
+            $paciente->usuario->update([...$this->datosUsuario($datos), 'estado' => $estadoNuevo]);
             $paciente->update(['nro_ficha' => $datos['nro_ficha'] ?? null]);
 
             $this->guardarInformacionMedica($paciente, $datos);
@@ -153,73 +154,16 @@ class PacienteController extends Controller implements HasMiddleware
             $usuario = $paciente->usuario;
             Auditoria::registrar(Auditoria::MODIFICAR, Auditoria::PACIENTES, (int) $paciente->id_paciente,
                 trim("Datos del paciente «{$usuario->nombre} {$usuario->apellido}» guardados. " . Auditoria::camposCambiados($usuario, $paciente)));
+
+            if ($estadoAnterior !== $estadoNuevo) {
+                Auditoria::registrar(Auditoria::CAMBIO_ESTADO, Auditoria::PACIENTES, (int) $paciente->id_paciente,
+                    "Cuenta del paciente «{$usuario->nombre} {$usuario->apellido}»: {$estadoAnterior} → {$estadoNuevo}.");
+            }
         });
 
         return redirect()
             ->route('pacientes.show', $paciente)
             ->with('status', 'Datos del paciente actualizados correctamente.');
-    }
-
-    public function destroy(Request $request, Paciente $paciente): RedirectResponse
-    {
-        $id = (int) $paciente->id_paciente;
-
-        if ($id === (int) $request->user()->id) {
-            return back()->with('error', 'No puedes eliminar tu propio registro de paciente.');
-        }
-
-        $nombre = $paciente->usuario ? $paciente->usuario->nombre . ' ' . $paciente->usuario->apellido : "#{$id}";
-
-        try {
-            $resultado = DB::transaction(function () use ($id) {
-                // Se bloquean primero las filas (usuario y luego paciente). Mientras dure la
-                // transacción, un INSERT concurrente en citas para este paciente queda en espera,
-                // así que la comprobación siguiente no puede quedar desactualizada.
-                $usuario = User::whereKey($id)->lockForUpdate()->first();
-                $ficha = Paciente::whereKey($id)->lockForUpdate()->first();
-
-                if (! $usuario || ! $ficha) {
-                    return ['error' => 'El paciente ya no existe.'];
-                }
-
-                $dependencias = new DependenciasUsuario($id);
-
-                // Las citas (con sus pagos e historial) y los bloqueos se borrarían en cascada.
-                if ($impedimentos = $dependencias->impedimentosParaEliminarPaciente()) {
-                    return ['error' => 'No se puede eliminar al paciente porque ' . implode(' y ', $impedimentos) . '.'];
-                }
-
-                // Si la cuenta tiene otros roles o autoría en la auditoría, solo se quita la ficha.
-                if ($motivos = $dependencias->motivosParaConservarCuenta()) {
-                    $ficha->delete();
-
-                    return ['status' => 'Se eliminó la ficha de paciente. La cuenta de acceso se conservó porque ' . implode(' y ', $motivos) . '.'];
-                }
-
-                // Borra la cuenta; en cascada se eliminan ficha, información médica, contactos,
-                // notificaciones y preferencias (ver DependenciasUsuario).
-                $usuario->delete();
-
-                return ['status' => 'Paciente eliminado correctamente.'];
-            });
-        } catch (QueryException $e) {
-            // 23503: la base de datos rechazó el borrado por una clave foránea (protección RESTRICT).
-            if ($e->getCode() === '23503') {
-                return back()->with('error', 'La base de datos impidió eliminar al paciente porque tiene registros relacionados.');
-            }
-
-            throw $e;
-        }
-
-        if (isset($resultado['error'])) {
-            return back()->with('error', $resultado['error']);
-        }
-
-        Auditoria::registrar(Auditoria::ELIMINAR, Auditoria::PACIENTES, $id, "Paciente «{$nombre}». {$resultado['status']}");
-
-        return redirect()
-            ->route('pacientes.index')
-            ->with('status', $resultado['status']);
     }
 
     /**
@@ -239,6 +183,25 @@ class PacienteController extends Controller implements HasMiddleware
             'email' => $datos['email'],
             'username' => $datos['username'],
         ];
+    }
+
+    /**
+     * @throws ValidationException si la cuenta no se puede desactivar.
+     */
+    private function comprobarDesactivacion(int $id, int $idActual): void
+    {
+        $dependencias = new DependenciasUsuario($id);
+
+        if ($id === $idActual) {
+            throw ValidationException::withMessages(['estado' => 'No puedes desactivar tu propia cuenta.']);
+        }
+        if ($dependencias->esCuentaPrincipal()) {
+            throw ValidationException::withMessages(['estado' => 'La cuenta administrativa principal no se puede desactivar.']);
+        }
+        if ($pendientes = $dependencias->citasPendientesComoPaciente()) {
+            throw ValidationException::withMessages(['estado' => "No se puede desactivar: el paciente tiene {$pendientes} "
+                . ($pendientes === 1 ? 'cita pendiente' : 'citas pendientes') . '. Cancélalas antes.']);
+        }
     }
 
     /**

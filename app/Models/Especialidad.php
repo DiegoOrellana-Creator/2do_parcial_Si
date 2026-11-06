@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Tabla `especialidad` (id_especialidad, nombre, descripcion, estado).
+ * Tabla `especialidad` (id_especialidad, nombre, descripcion, estado, precio).
+ * `precio` es el importe de la consulta; sin precio, la especialidad todavía no se puede cobrar.
  *
  * Claves foráneas que la referencian, ambas ON DELETE CASCADE en clinica_db:
  *  - especialidad_medico.id_especialidad (médicos que la ejercen)
@@ -33,7 +34,13 @@ class Especialidad extends Model
         'nombre',
         'descripcion',
         'estado',
+        'precio',
     ];
+
+    protected function casts(): array
+    {
+        return ['precio' => 'decimal:2'];
+    }
 
     public function totalMedicos(): int
     {

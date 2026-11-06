@@ -147,6 +147,71 @@ class EspecialidadesTest extends TestCase
         $this->assertDatabaseHas('especialidad', ['id_especialidad' => $especialidad->id_especialidad, 'nombre' => 'Oftalmología', 'descripcion' => null, 'estado' => 'Inactivo']);
     }
 
+    // --- Precio ---------------------------------------------------------------
+
+    public function test_guarda_cambia_y_conserva_el_precio(): void
+    {
+        $this->actingAs($this->admin)->post(route('especialidades.store'), ['nombre' => 'Cardiología', 'estado' => 'Activo', 'precio' => '250.50'])
+            ->assertSessionHasNoErrors();
+        $especialidad = Especialidad::firstWhere('nombre', 'Cardiología');
+        $this->assertSame('250.50', $especialidad->precio);
+
+        // Un formulario que no envía el precio no lo borra.
+        $this->actingAs($this->admin)->put(route('especialidades.update', $especialidad), ['nombre' => 'Cardiología', 'estado' => 'Inactivo'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('250.50', $especialidad->fresh()->precio);
+
+        $this->actingAs($this->admin)->put(route('especialidades.update', $especialidad), ['nombre' => 'Cardiología', 'estado' => 'Activo', 'precio' => '300'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('300.00', $especialidad->fresh()->precio);
+
+        // Sin precio al registrar: queda vacío.
+        $this->actingAs($this->admin)->post(route('especialidades.store'), ['nombre' => 'Geriatría', 'estado' => 'Activo'])->assertSessionHasNoErrors();
+        $this->assertNull(Especialidad::firstWhere('nombre', 'Geriatría')->precio);
+    }
+
+    public function test_las_pantallas_muestran_y_editan_el_precio(): void
+    {
+        $conPrecio = Especialidad::create(['nombre' => 'Cardiología', 'estado' => 'Activo', 'precio' => '1250.5']);
+        $sinPrecio = $this->especialidad('Geriatría');
+
+        $this->actingAs($this->admin)->get(route('especialidades.index'))
+            ->assertOk()->assertSee('Bs 1,250.50')->assertSee('Sin precio');
+        $this->actingAs($this->admin)->get(route('especialidades.show', $conPrecio))->assertSee('Bs 1,250.50');
+        $this->actingAs($this->admin)->get(route('especialidades.show', $sinPrecio))->assertSee('Sin precio');
+        $this->actingAs($this->admin)->get(route('especialidades.create'))->assertOk()->assertSee('name="precio"', false);
+        $this->actingAs($this->admin)->get(route('especialidades.edit', $conPrecio))->assertOk()->assertSee('value="1250.50"', false);
+    }
+
+    public function test_valida_el_precio_con_mensajes_en_espanol(): void
+    {
+        $casos = [
+            'abc' => 'El precio debe ser un número.',
+            '0' => 'El precio debe ser mayor que 0.',
+            '-10' => 'El precio debe ser mayor que 0.',
+            '10.555' => 'El precio puede tener como máximo 2 decimales.',
+            '100000000' => 'El precio es demasiado alto.',
+        ];
+
+        foreach ($casos as $precio => $mensaje) {
+            $this->actingAs($this->admin)->post(route('especialidades.store'), ['nombre' => 'Cardiología', 'estado' => 'Activo', 'precio' => (string) $precio])
+                ->assertSessionHasErrors(['precio' => $mensaje]);
+        }
+
+        $this->assertDatabaseCount('especialidad', 0);
+    }
+
+    public function test_la_recepcionista_no_cambia_el_precio(): void
+    {
+        $especialidad = Especialidad::create(['nombre' => 'Cardiología', 'estado' => 'Activo', 'precio' => '250']);
+
+        $this->actingAs($this->usuario('recepcion', 'Recepcionista'))
+            ->put(route('especialidades.update', $especialidad), ['nombre' => 'Cardiología', 'estado' => 'Activo', 'precio' => '1'])
+            ->assertForbidden();
+
+        $this->assertSame('250.00', $especialidad->fresh()->precio);
+    }
+
     // --- Validación ---------------------------------------------------------
 
     public function test_valida_campos_con_mensajes_en_espanol(): void

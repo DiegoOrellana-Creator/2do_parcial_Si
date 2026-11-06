@@ -99,7 +99,6 @@ class PacientesTest extends TestCase
         $this->actingAs($usuario)->get(route('pacientes.create'))->assertForbidden();
         $this->actingAs($usuario)->get(route('pacientes.show', $paciente))->assertForbidden();
         $this->actingAs($usuario)->post(route('pacientes.store'), $this->datosValidos())->assertForbidden();
-        $this->actingAs($usuario)->delete(route('pacientes.destroy', $paciente))->assertForbidden();
 
         $this->actingAs($usuario)->get(route('dashboard'))
             ->assertOk()
@@ -122,7 +121,6 @@ class PacientesTest extends TestCase
         $this->actingAs($recepcionista)->get(route('pacientes.index'))->assertOk();
         $this->actingAs($recepcionista)->get(route('pacientes.create'))->assertOk();
         $this->actingAs($recepcionista)->get(route('pacientes.edit', $paciente))->assertOk();
-        $this->actingAs($recepcionista)->delete(route('pacientes.destroy', $paciente))->assertForbidden();
 
         $this->actingAs($recepcionista)->get(route('pacientes.show', $paciente))
             ->assertOk()
@@ -239,7 +237,7 @@ class PacientesTest extends TestCase
             ->assertSee('Penicilina')
             ->assertSee('Luis Rojas')
             ->assertSee('El paciente todavía no tiene citas registradas.')
-            ->assertSee('Eliminar definitivamente');
+            ->assertDontSee('Eliminar');
     }
 
     public function test_actualiza_un_paciente_y_permite_conservar_sus_datos_unicos(): void
@@ -260,134 +258,6 @@ class PacientesTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $paciente->id_paciente, 'telefono' => '70999999', 'email' => 'ana.rojas@ejemplo.test']);
         $this->assertDatabaseHas('informacion_medica', ['id_paciente' => $paciente->id_paciente, 'tipo_sangre' => 'A-']);
         $this->assertDatabaseCount('contacto_emergencia', 0);
-    }
-
-    public function test_elimina_un_paciente_sin_citas(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $paciente = $this->paciente();
-        $id = $paciente->id_paciente;
-
-        $this->actingAs($admin)->delete(route('pacientes.destroy', $paciente))
-            ->assertRedirect(route('pacientes.index'))
-            ->assertSessionHas('status', 'Paciente eliminado correctamente.');
-
-        $this->assertDatabaseMissing('paciente', ['id_paciente' => $id]);
-        $this->assertDatabaseMissing('users', ['id' => $id]);
-    }
-
-    public function test_no_elimina_un_paciente_con_citas(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $paciente = $this->paciente();
-        $medico = $this->usuario();
-        DB::table('medico')->insert(['id_medico' => $medico->id]);
-        $idEspecialidad = DB::table('especialidad')->insertGetId(['nombre' => 'Pediatría'], 'id_especialidad');
-        DB::table('citas')->insert([
-            'codigo' => 'C-1', 'id_paciente' => $paciente->id_paciente, 'id_medico' => $medico->id,
-            'id_especialidad' => $idEspecialidad, 'fecha_cita' => '2026-10-20', 'hora_inicio' => '08:30', 'hora_fin' => '09:00',
-        ]);
-
-        $this->actingAs($admin)->get(route('pacientes.show', $paciente))
-            ->assertOk()->assertSee('C-1')->assertSee('Pediatría')->assertDontSee('Eliminar definitivamente');
-
-        $this->actingAs($admin)->from(route('pacientes.show', $paciente))
-            ->delete(route('pacientes.destroy', $paciente))
-            ->assertRedirect(route('pacientes.show', $paciente))
-            ->assertSessionHas('error', 'No se puede eliminar al paciente porque tiene 1 cita registrada.');
-
-        $this->assertDatabaseHas('paciente', ['id_paciente' => $paciente->id_paciente]);
-        $this->assertDatabaseHas('citas', ['codigo' => 'C-1']);
-    }
-
-    public function test_no_elimina_un_paciente_con_bloqueos_registrados(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $paciente = $this->paciente();
-        DB::table('bloqueo_paciente')->insert(['id_paciente' => $paciente->id_paciente, 'motivo' => 'Inasistencias']);
-
-        $this->actingAs($admin)->get(route('pacientes.show', $paciente))
-            ->assertSee('no se puede eliminar porque tiene 1 bloqueo registrado')
-            ->assertDontSee('Eliminar definitivamente');
-
-        $this->actingAs($admin)->delete(route('pacientes.destroy', $paciente))
-            ->assertSessionHas('error', 'No se puede eliminar al paciente porque tiene 1 bloqueo registrado.');
-
-        $this->assertDatabaseCount('bloqueo_paciente', 1);
-    }
-
-    public function test_si_la_cuenta_tiene_un_rol_en_usuario_rol_solo_se_quita_la_ficha(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $recepcionista = $this->usuario([], 'Recepcionista');
-        $paciente = Paciente::create(['id_paciente' => $recepcionista->id, 'inasistencia' => 0, 'bloqueado' => false]);
-
-        $this->actingAs($admin)->get(route('pacientes.show', $paciente))
-            ->assertSee('se conservarán porque también es rol «Recepcionista»');
-
-        $this->actingAs($admin)->delete(route('pacientes.destroy', $paciente))
-            ->assertRedirect(route('pacientes.index'))
-            ->assertSessionHas('status', 'Se eliminó la ficha de paciente. La cuenta de acceso se conservó porque también es rol «Recepcionista».');
-
-        $this->assertDatabaseMissing('paciente', ['id_paciente' => $recepcionista->id]);
-        $this->assertDatabaseHas('users', ['id' => $recepcionista->id]);
-        $this->assertDatabaseHas('usuario_rol', ['id_usuario' => $recepcionista->id]);
-    }
-
-    public function test_si_la_cuenta_figura_en_la_auditoria_se_conserva_su_autoria(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $paciente = $this->paciente();
-        DB::table('bitacora')->insert(['id_usuario' => $paciente->id_paciente, 'accion' => 'Inicio de sesión']);
-
-        $this->actingAs($admin)->delete(route('pacientes.destroy', $paciente))
-            ->assertSessionHas('status', 'Se eliminó la ficha de paciente. La cuenta de acceso se conservó porque figura como autor de 1 registro de auditoría.');
-
-        $this->assertDatabaseHas('users', ['id' => $paciente->id_paciente]);
-        $this->assertDatabaseHas('bitacora', ['id_usuario' => $paciente->id_paciente]);
-    }
-
-    public function test_la_confirmacion_detalla_lo_que_se_eliminara(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $this->actingAs($admin)->post(route('pacientes.store'), $this->datosValidos());
-        $paciente = Paciente::firstWhere('nro_ficha', 'F-0001');
-        DB::table('notificacion')->insert(['id_usuario' => $paciente->id_paciente, 'mensaje' => 'Recordatorio']);
-
-        $this->actingAs($admin)->get(route('pacientes.show', $paciente))
-            ->assertSeeInOrder([
-                'Se eliminará definitivamente:',
-                'La ficha de paciente (n.º F-0001).',
-                'Su información médica.',
-                '1 contacto de emergencia.',
-                'Su cuenta de acceso (ana_rojas) con sus datos personales.',
-                '1 notificación.',
-                'No tiene citas ni bloqueos registrados.',
-            ]);
-    }
-
-    public function test_si_el_paciente_tambien_es_personal_solo_se_quita_su_ficha(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $paciente = $this->paciente();
-        DB::table('medico')->insert(['id_medico' => $paciente->id_paciente]);
-
-        $this->actingAs($admin)->delete(route('pacientes.destroy', $paciente))->assertRedirect(route('pacientes.index'));
-
-        $this->assertDatabaseMissing('paciente', ['id_paciente' => $paciente->id_paciente]);
-        $this->assertDatabaseHas('users', ['id' => $paciente->id_paciente]);
-        $this->assertDatabaseHas('medico', ['id_medico' => $paciente->id_paciente]);
-    }
-
-    public function test_no_permite_eliminarse_a_si_mismo(): void
-    {
-        $admin = $this->usuario([], 'Administrador');
-        $paciente = Paciente::create(['id_paciente' => $admin->id, 'inasistencia' => 0, 'bloqueado' => false]);
-
-        $this->actingAs($admin)->delete(route('pacientes.destroy', $paciente))
-            ->assertSessionHas('error', 'No puedes eliminar tu propio registro de paciente.');
-
-        $this->assertDatabaseHas('paciente', ['id_paciente' => $admin->id]);
     }
 
     public function test_las_vistas_usan_csrf_y_no_contienen_javascript(): void
@@ -414,6 +284,83 @@ class PacientesTest extends TestCase
         $this->actingAs($admin)->get(route('pacientes.edit', $paciente))
             ->assertSee('name="_token"', false)->assertSee('name="_method" value="PUT"', false);
         $this->actingAs($admin)->get(route('pacientes.show', $paciente))
-            ->assertSee('name="_method" value="DELETE"', false);
+            ->assertDontSee('name="_method" value="DELETE"', false);
+    }
+
+    // --- Desactivar ----------------------------------------------------------
+
+    private function datosDe(Paciente $paciente, array $cambios = []): array
+    {
+        $usuario = $paciente->usuario;
+
+        return array_merge(['nombre' => $usuario->nombre, 'apellido' => $usuario->apellido, 'email' => $usuario->email, 'username' => $usuario->username], $cambios);
+    }
+
+    public function test_el_administrador_desactiva_y_reactiva_un_paciente_sin_perder_sus_datos(): void
+    {
+        $this->usuario(['username' => 'principal', 'email' => 'principal@ejemplo.test']);
+        $admin = $this->usuario(['username' => 'jefa', 'email' => 'jefa@ejemplo.test'], 'Administrador')->fresh();
+        $paciente = $this->paciente();
+
+        $this->actingAs($admin)->get(route('pacientes.edit', $paciente))->assertOk()->assertSee('name="estado"', false);
+
+        $this->actingAs($admin)->put(route('pacientes.update', $paciente), $this->datosDe($paciente, ['estado' => 'Inactivo']))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('users', ['id' => $paciente->id_paciente, 'estado' => 'Inactivo']);
+        $this->assertDatabaseHas('paciente', ['id_paciente' => $paciente->id_paciente]);
+        $this->assertDatabaseHas('bitacora', ['accion' => 'Cambio de estado', 'modulo' => 'Pacientes', 'id_registro' => $paciente->id_paciente]);
+
+        // Una cuenta inactiva no inicia sesión.
+        $this->post(route('logout'));
+        $this->post(route('login'), ['email' => $paciente->usuario->email, 'password' => 'password'])->assertSessionHasErrors('email');
+        $this->assertGuest();
+
+        $paciente = $paciente->fresh();
+        $this->actingAs($admin)->put(route('pacientes.update', $paciente), $this->datosDe($paciente, ['estado' => 'Activo']))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('users', ['id' => $paciente->id_paciente, 'estado' => 'Activo']);
+    }
+
+    public function test_recepcion_no_cambia_el_estado_del_paciente(): void
+    {
+        $this->usuario(['username' => 'principal', 'email' => 'principal@ejemplo.test']);
+        $recepcion = $this->usuario(['username' => 'recepcion', 'email' => 'recepcion@ejemplo.test'], 'Recepcionista')->fresh();
+        $paciente = $this->paciente();
+
+        $this->actingAs($recepcion)->get(route('pacientes.edit', $paciente))->assertOk()->assertDontSee('name="estado"', false);
+        $this->actingAs($recepcion)->put(route('pacientes.update', $paciente), $this->datosDe($paciente, ['estado' => 'Inactivo']))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('users', ['id' => $paciente->id_paciente, 'estado' => 'Activo']);
+    }
+
+    public function test_no_desactiva_con_citas_pendientes_ni_la_propia_cuenta_ni_la_principal(): void
+    {
+        $principal = $this->usuario(['username' => 'admin', 'email' => 'admin@ejemplo.test'], 'Administrador')->fresh();
+        Paciente::create(['id_paciente' => $principal->id, 'inasistencia' => 0, 'bloqueado' => false]);
+        $jefa = $this->usuario(['username' => 'jefa', 'email' => 'jefa@ejemplo.test'], 'Administrador')->fresh();
+        Paciente::create(['id_paciente' => $jefa->id, 'inasistencia' => 0, 'bloqueado' => false]);
+        $paciente = $this->paciente();
+        $medico = $this->usuario(['username' => 'doctora', 'email' => 'doctora@ejemplo.test']);
+        DB::table('medico')->insert(['id_medico' => $medico->id]);
+        $idEsp = DB::table('especialidad')->insertGetId(['nombre' => 'Cardiología'], 'id_especialidad');
+        $idCita = DB::table('citas')->insertGetId([
+            'codigo' => 'C-P', 'id_paciente' => $paciente->id_paciente, 'id_medico' => $medico->id, 'id_especialidad' => $idEsp,
+            'fecha_cita' => now()->addWeek()->toDateString(), 'hora_inicio' => '09:00', 'hora_fin' => '09:30', 'estado' => 'Programada',
+        ], 'id_cita');
+
+        $this->actingAs($jefa)->put(route('pacientes.update', $paciente), $this->datosDe($paciente, ['estado' => 'Inactivo']))
+            ->assertSessionHasErrors(['estado' => 'No se puede desactivar: el paciente tiene 1 cita pendiente. Cancélalas antes.']);
+        $this->assertDatabaseHas('users', ['id' => $paciente->id_paciente, 'estado' => 'Activo']);
+
+        // Sin citas pendientes ya se puede, y la cita se conserva.
+        DB::table('citas')->where('id_cita', $idCita)->update(['estado' => 'Cancelada']);
+        $this->actingAs($jefa)->put(route('pacientes.update', $paciente), $this->datosDe($paciente, ['estado' => 'Inactivo']))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('citas', ['id_cita' => $idCita]);
+
+        $fichaPropia = Paciente::find($jefa->id);
+        $this->actingAs($jefa)->put(route('pacientes.update', $fichaPropia), $this->datosDe($fichaPropia, ['estado' => 'Inactivo']))
+            ->assertSessionHasErrors(['estado' => 'No puedes desactivar tu propia cuenta.']);
+
+        $fichaPrincipal = Paciente::find($principal->id);
+        $this->actingAs($jefa)->put(route('pacientes.update', $fichaPrincipal), $this->datosDe($fichaPrincipal, ['estado' => 'Inactivo']))
+            ->assertSessionHasErrors(['estado' => 'La cuenta administrativa principal no se puede desactivar.']);
     }
 }

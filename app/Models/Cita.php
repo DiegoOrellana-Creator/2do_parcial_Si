@@ -10,8 +10,8 @@ use Illuminate\Support\Carbon;
 /**
  * Tabla `citas`. Estados usados por el proyecto (components/admin/status-badge.blade.php):
  * Programada (valor por defecto de la columna), Confirmada, Atendida, Cancelada y No asistió.
- * En el Ciclo 1 se registran citas «Programada» y se cancelan («Cancelada»); confirmar,
- * reprogramar y registrar asistencia corresponden al Ciclo 2.
+ * Se registran citas «Programada», se reprograman (vuelven a «Programada») y se cancelan
+ * («Cancelada»); confirmar y registrar asistencia corresponden al Ciclo 2.
  */
 class Cita extends Model
 {
@@ -78,6 +78,11 @@ class Cita extends Model
     public function historial(): HasMany
     {
         return $this->hasMany(HistorialEstadoCita::class, 'id_cita', 'id_cita')->orderBy('fecha_hora')->orderBy('id_historial');
+    }
+
+    public function pagos(): HasMany
+    {
+        return $this->hasMany(Pago::class, 'id_cita', 'id_cita')->orderBy('id_pago');
     }
 
     public function inicio(): Carbon

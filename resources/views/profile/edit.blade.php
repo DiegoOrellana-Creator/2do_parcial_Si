@@ -18,10 +18,5 @@
             </div>
         </div>
 
-        <div class="panel">
-            <div class="panel__inner">
-                @include('profile.partials.delete-user-form')
-            </div>
-        </div>
     </div>
 </x-app-layout>

@@ -268,7 +268,7 @@ class BitacoraTest extends TestCase
         $this->assertSame((int) $cita->id_cita, (int) $cancelacion->id_registro);
     }
 
-    public function test_registra_cambios_de_la_propia_cuenta_y_no_impide_eliminarla(): void
+    public function test_registra_el_cambio_de_contrasena_sin_secretos(): void
     {
         $usuario = $this->cuenta('sin_vinculos');
 
@@ -277,16 +277,7 @@ class BitacoraTest extends TestCase
             'current_password' => 'password', 'password' => 'Nueva-Clave-2026', 'password_confirmation' => 'Nueva-Clave-2026',
         ])->assertSessionHasNoErrors();
 
-        // Sus propios eventos de sesión y cuenta no bloquean la eliminación de la cuenta.
-        $this->actingAs($usuario->fresh())->delete(route('profile.destroy'), ['password' => 'Nueva-Clave-2026'])->assertRedirect('/');
-        $this->assertDatabaseMissing('users', ['id' => $usuario->id]);
-
-        $this->assertSame(['Inicio de sesión · Sesión', 'Cambio de contraseña · Cuenta', 'Eliminación · Cuenta'], $this->eventos());
-        $eliminacion = Bitacora::where('accion', 'Eliminación')->sole();
-        $this->assertNull($eliminacion->id_usuario);
-        $this->assertSame('El usuario «sin_vinculos» eliminó su propia cuenta.', $eliminacion->detalle);
-        // Los registros anteriores quedan sin autor (ON DELETE SET NULL), no se borran.
-        $this->assertSame(3, Bitacora::count());
+        $this->assertSame(['Inicio de sesión · Sesión', 'Cambio de contraseña · Cuenta'], $this->eventos());
         $this->sinSecretos(['Nueva-Clave-2026']);
     }
 

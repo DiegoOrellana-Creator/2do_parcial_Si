@@ -342,7 +342,6 @@ class PerfilesMenuTest extends TestCase
             ['get', route('pacientes.index')], ['get', route('pacientes.create')], ['get', route('pacientes.show', $paciente->id)],
             ['get', route('medicos.index')], ['get', route('medicos.show', $medico->id)], ['get', route('medicos.edit', $medico->id)],
             ['get', route('especialidades.index')], ['post', route('especialidades.store')],
-            ['delete', route('pacientes.destroy', $paciente->id)], ['delete', route('medicos.destroy', $medico->id)],
         ];
 
         foreach ([$paciente, $medico, $nadie] as $usuario) {

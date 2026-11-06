@@ -27,6 +27,9 @@ $medico = $cita->medico->usuario;
                     <div><dt>Estado</dt><dd>{{ $cita->estado }}</dd></div>
                     <div><dt>Médico</dt><dd>{{ $medico->nombre }} {{ $medico->apellido }}</dd></div>
                     <div><dt>Especialidad</dt><dd>{{ $cita->especialidad->nombre }}</dd></div>
+                    @if ($cita->especialidad->precio !== null)
+                        <div><dt>Precio de la consulta</dt><dd>Bs {{ number_format((float) $cita->especialidad->precio, 2) }}</dd></div>
+                    @endif
                     <div><dt>Fecha</dt><dd>{{ Str::ucfirst(Carbon::parse($cita->fecha_cita)->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY')) }}</dd></div>
                     <div><dt>Hora</dt><dd>{{ substr($cita->hora_inicio, 0, 5) }}–{{ substr($cita->hora_fin, 0, 5) }}</dd></div>
                     <div><dt>Motivo</dt><dd class="pre-line">{{ filled($cita->motivo) ? $cita->motivo : 'Sin motivo indicado' }}</dd></div>

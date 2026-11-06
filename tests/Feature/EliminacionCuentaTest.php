@@ -7,10 +7,11 @@ use App\Models\User;
 use Database\Seeders\PermisosPacientesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
- * Eliminación de la propia cuenta desde «Mi perfil» (ProfileController::destroy).
+ * Ninguna cuenta puede eliminarse a sí misma desde «Mi perfil».
  */
 class EliminacionCuentaTest extends TestCase
 {
@@ -24,116 +25,70 @@ class EliminacionCuentaTest extends TestCase
         $this->assertSame('sqlite', DB::connection()->getDriverName());
         $this->assertSame(':memory:', DB::connection()->getDatabaseName());
 
-        // Como en clinica_db: la cuenta administrativa principal es id 1 / «admin».
-        $this->usuario('admin');
+        $this->seed(PermisosPacientesSeeder::class);
     }
 
-    private function usuario(string $username): User
+    private function usuario(string $username, ?string $rol = null): User
     {
-        return User::create([
+        $usuario = User::create([
             'nombre' => 'Usuario',
             'apellido' => 'Prueba',
             'email' => "{$username}@ejemplo.test",
             'username' => $username,
             'password' => 'password',
         ]);
+
+        if ($rol) {
+            DB::table('usuario_rol')->insert(['id_usuario' => $usuario->id, 'id_rol' => DB::table('rol')->where('nombre', $rol)->value('id_rol')]);
+        }
+
+        return $usuario->fresh();
     }
 
-    public function test_una_cuenta_sin_vinculos_se_puede_eliminar(): void
+    /** @return list<User> una cuenta de cada perfil */
+    private function cuentas(): array
     {
-        $usuario = $this->usuario('libre');
-
-        $this->actingAs($usuario)
-            ->delete(route('profile.destroy'), ['password' => 'password'])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
-
-        $this->assertGuest();
-        $this->assertDatabaseMissing('users', ['id' => $usuario->id]);
-    }
-
-    public function test_la_contrasena_sigue_siendo_obligatoria(): void
-    {
-        $usuario = $this->usuario('clave');
-
-        $this->actingAs($usuario)
-            ->from(route('profile.edit'))
-            ->delete(route('profile.destroy'), ['password' => 'incorrecta'])
-            ->assertSessionHasErrorsIn('userDeletion', 'password')
-            ->assertRedirect(route('profile.edit'));
-
-        $this->assertDatabaseHas('users', ['id' => $usuario->id]);
-    }
-
-    public function test_un_paciente_con_citas_no_borra_su_cuenta_ni_sus_citas_y_pagos(): void
-    {
-        $usuario = $this->usuario('paciente');
-        Paciente::create(['id_paciente' => $usuario->id, 'inasistencia' => 0, 'bloqueado' => false]);
-
+        $paciente = $this->usuario('paciente');
+        Paciente::create(['id_paciente' => $paciente->id, 'inasistencia' => 0, 'bloqueado' => false]);
         $medico = $this->usuario('medico');
         DB::table('medico')->insert(['id_medico' => $medico->id]);
-        $idEspecialidad = DB::table('especialidad')->insertGetId(['nombre' => 'Cardiología'], 'id_especialidad');
-        $idCita = DB::table('citas')->insertGetId([
-            'codigo' => 'C-9', 'id_paciente' => $usuario->id, 'id_medico' => $medico->id,
-            'id_especialidad' => $idEspecialidad, 'fecha_cita' => '2026-11-02', 'hora_inicio' => '09:00', 'hora_fin' => '09:30',
-        ], 'id_cita');
-        DB::table('pago')->insert(['id_cita' => $idCita, 'monto' => 150]);
 
-        $this->actingAs($usuario)
-            ->delete(route('profile.destroy'), ['password' => 'password'])
-            ->assertRedirect(route('profile.edit'))
-            ->assertSessionHasErrorsIn('userDeletion', [
-                'cuenta' => 'No puedes eliminar tu cuenta porque tiene una ficha de paciente en la clínica. Solicita la baja al personal de la clínica.',
-            ]);
-
-        $this->assertAuthenticatedAs($usuario);
-        $this->assertDatabaseHas('users', ['id' => $usuario->id]);
-        $this->assertDatabaseHas('citas', ['id_cita' => $idCita]);
-        $this->assertDatabaseHas('pago', ['id_cita' => $idCita]);
+        return [$this->usuario('admin', 'Administrador'), $this->usuario('recepcion', 'Recepcionista'), $medico, $paciente, $this->usuario('sin_perfil')];
     }
 
-    public function test_un_medico_con_citas_no_borra_su_cuenta(): void
+    public function test_no_existe_la_ruta_para_eliminar_la_cuenta(): void
     {
-        $medico = $this->usuario('doctora');
-        DB::table('medico')->insert(['id_medico' => $medico->id]);
+        $this->assertFalse(Route::has('profile.destroy'));
 
-        $this->actingAs($medico)
-            ->delete(route('profile.destroy'), ['password' => 'password'])
-            ->assertSessionHasErrorsIn('userDeletion', 'cuenta');
+        foreach ($this->cuentas() as $cuenta) {
+            $this->actingAs($cuenta)->delete('/profile', ['password' => 'password'])->assertStatus(405);
 
+            $this->assertAuthenticatedAs($cuenta);
+            $this->assertDatabaseHas('users', ['id' => $cuenta->id]);
+        }
+    }
+
+    public function test_pacientes_y_medicos_no_se_pueden_eliminar(): void
+    {
+        $this->assertFalse(Route::has('pacientes.destroy'));
+        $this->assertFalse(Route::has('medicos.destroy'));
+
+        [$admin, , $medico, $paciente] = $this->cuentas();
+
+        $this->actingAs($admin)->delete('/pacientes/' . $paciente->id)->assertStatus(405);
+        $this->actingAs($admin)->delete('/medicos/' . $medico->id)->assertStatus(405);
+        $this->assertDatabaseHas('users', ['id' => $paciente->id]);
+        $this->assertDatabaseHas('paciente', ['id_paciente' => $paciente->id]);
+        $this->assertDatabaseHas('users', ['id' => $medico->id]);
         $this->assertDatabaseHas('medico', ['id_medico' => $medico->id]);
     }
 
-    public function test_un_usuario_con_rol_asignado_no_borra_su_cuenta(): void
+    public function test_ningun_perfil_ve_la_opcion_y_todos_pueden_cambiar_su_contrasena(): void
     {
-        $this->seed(PermisosPacientesSeeder::class);
-        $admin = $this->usuario('jefa_admin');
-        DB::table('usuario_rol')->insert([
-            'id_usuario' => $admin->id,
-            'id_rol' => DB::table('rol')->where('nombre', 'Administrador')->value('id_rol'),
-        ]);
-
-        $this->actingAs($admin)
-            ->delete(route('profile.destroy'), ['password' => 'password'])
-            ->assertSessionHasErrorsIn('userDeletion', [
-                'cuenta' => 'No puedes eliminar tu cuenta porque también es rol «Administrador». Solicita la baja al personal de la clínica.',
-            ]);
-
-        $this->assertDatabaseHas('users', ['id' => $admin->id]);
-        $this->assertDatabaseHas('usuario_rol', ['id_usuario' => $admin->id]);
-    }
-
-    public function test_el_perfil_muestra_el_motivo_sin_abrir_la_ventana(): void
-    {
-        $usuario = $this->usuario('paciente2');
-        Paciente::create(['id_paciente' => $usuario->id, 'inasistencia' => 0, 'bloqueado' => false]);
-
-        $this->actingAs($usuario)
-            ->from(route('profile.edit'))
-            ->followingRedirects()
-            ->delete(route('profile.destroy'), ['password' => 'password'])
-            ->assertOk()
-            ->assertSee('No puedes eliminar tu cuenta porque tiene una ficha de paciente en la clínica.')
-            ->assertDontSee('id="confirm-user-deletion" class="form-stack modal modal--2xl" open', false);
+        foreach ($this->cuentas() as $cuenta) {
+            $this->actingAs($cuenta)->get(route('profile.edit'))->assertOk()
+                ->assertDontSee('Delete Account')->assertDontSee('confirm-user-deletion')
+                ->assertSee('action="' . route('password.update') . '"', false);
+        }
     }
 }

@@ -1,58 +1,89 @@
+@php($soloLectura = ! $user->puedeEditarSusDatos())
+
 <section>
     <header>
         <h2 class="section-title">
-            {{ __('Profile Information') }}
+            Datos de mi cuenta
         </h2>
 
         <p class="section-text">
-            {{ __("Update your account's profile information and email address.") }}
+            @if ($soloLectura)
+                @if ($user->perfil() === \App\Models\User::PERFIL_PACIENTE)
+                    Si necesitas cambiar alguno de estos datos, solicítalo en la recepción de la clínica.
+                @else
+                    Si necesitas cambiar alguno de estos datos, solicítalo al administrador.
+                @endif
+            @else
+                Actualiza tu nombre y tu correo electrónico. Con ese correo inicias sesión.
+            @endif
         </p>
     </header>
 
-    <form id="send-verification" method="post" action="{{ route('verification.send') }}">
-        @csrf
-    </form>
+    @if ($soloLectura)
+        <dl class="detail-list">
+            <div><dt>Nombre</dt><dd>{{ $user->nombre }}</dd></div>
+            <div><dt>Apellido</dt><dd>{{ $user->apellido }}</dd></div>
+            <div><dt>Nombre de usuario</dt><dd>{{ $user->username }}</dd></div>
+            <div><dt>Correo electrónico</dt><dd>{{ $user->email }}</dd></div>
+        </dl>
+    @else
+        <form id="send-verification" method="post" action="{{ route('verification.send') }}">
+            @csrf
+        </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="form-stack">
-        @csrf
-        @method('patch')
+        <form method="post" action="{{ route('profile.update') }}" class="form-stack">
+            @csrf
+            @method('patch')
 
-        <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input id="name" name="name" type="text" :value="old('name', $user->name)" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" />
-        </div>
+            <div>
+                <x-input-label for="nombre" value="Nombre" />
+                <x-text-input id="nombre" name="nombre" type="text" maxlength="100" :value="old('nombre', $user->nombre)" required autofocus autocomplete="given-name" />
+                <x-input-error :messages="$errors->get('nombre')" />
+            </div>
 
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" name="email" type="email" :value="old('email', $user->email)" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" />
+            <div>
+                <x-input-label for="apellido" value="Apellido" />
+                <x-text-input id="apellido" name="apellido" type="text" maxlength="100" :value="old('apellido', $user->apellido)" required autocomplete="family-name" />
+                <x-input-error :messages="$errors->get('apellido')" />
+            </div>
 
-            @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
-                <div>
-                    <p class="form-hint">
-                        {{ __('Your email address is unverified.') }}
+            <div>
+                <x-input-label for="username" value="Nombre de usuario" />
+                <x-text-input id="username" type="text" :value="$user->username" disabled aria-describedby="username-ayuda" />
+                <p id="username-ayuda" class="form-hint">No se puede cambiar desde aquí.</p>
+            </div>
 
-                        <button form="send-verification" class="link-button link-muted">
-                            {{ __('Click here to re-send the verification email.') }}
-                        </button>
-                    </p>
+            <div>
+                <x-input-label for="email" value="Correo electrónico" />
+                <x-text-input id="email" name="email" type="email" maxlength="100" :value="old('email', $user->email)" required autocomplete="username" />
+                <x-input-error :messages="$errors->get('email')" />
 
-                    @if (session('status') === 'verification-link-sent')
-                        <p class="alert alert--success">
-                            {{ __('A new verification link has been sent to your email address.') }}
+                @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
+                    <div>
+                        <p class="form-hint">
+                            {{ __('Your email address is unverified.') }}
+
+                            <button form="send-verification" class="link-button link-muted">
+                                {{ __('Click here to re-send the verification email.') }}
+                            </button>
                         </p>
-                    @endif
-                </div>
-            @endif
-        </div>
 
-        <div class="form-actions">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
+                        @if (session('status') === 'verification-link-sent')
+                            <p class="alert alert--success">
+                                {{ __('A new verification link has been sent to your email address.') }}
+                            </p>
+                        @endif
+                    </div>
+                @endif
+            </div>
 
-            @if (session('status') === 'profile-updated')
-                <p class="flash-message">{{ __('Saved.') }}</p>
-            @endif
-        </div>
-    </form>
+            <div class="form-actions">
+                <x-primary-button>Guardar</x-primary-button>
+
+                @if (session('status') === 'profile-updated')
+                    <p class="flash-message">Datos guardados.</p>
+                @endif
+            </div>
+        </form>
+    @endif
 </section>

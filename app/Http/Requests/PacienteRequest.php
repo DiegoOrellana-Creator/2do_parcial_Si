@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Paciente;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -45,6 +46,9 @@ class PacienteRequest extends FormRequest
             // Cuenta (tabla users)
             'email' => ['required', 'string', 'email', 'max:100', Rule::unique('users', 'email')->ignore($idUsuario)],
             'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', Rule::unique('users', 'username')->ignore($idUsuario)],
+
+            // Activar o desactivar una cuenta existente: solo el administrador.
+            ...($paciente && $this->user()->esAdministrador() ? ['estado' => ['sometimes', Rule::in(User::ESTADOS)]] : []),
 
             // Ficha (tabla paciente)
             'nro_ficha' => ['nullable', 'string', 'max:50', Rule::unique('paciente', 'nro_ficha')->ignore($idUsuario, 'id_paciente')],
@@ -93,6 +97,7 @@ class PacienteRequest extends FormRequest
         return [
             'nombre' => 'nombre',
             'apellido' => 'apellido',
+            'estado' => 'estado de la cuenta',
             'ci' => 'carnet de identidad',
             'fecha_nacimiento' => 'fecha de nacimiento',
             'sexo' => 'sexo',

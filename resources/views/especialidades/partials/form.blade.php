@@ -30,6 +30,14 @@
             <x-input-error :messages="$errors->get('estado')" />
         </div>
 
+        <div>
+            <x-input-label for="precio" value="Precio de la consulta (Bs)" />
+            <x-text-input id="precio" name="precio" type="number" min="0.01" max="99999999.99" step="0.01" aria-describedby="precio-ayuda"
+                          :value="old('precio', $especialidad->precio)" :aria-invalid="$errors->has('precio') ? 'true' : null" />
+            <p id="precio-ayuda" class="field-hint">Sin precio, la especialidad todavía no se podrá cobrar.</p>
+            <x-input-error :messages="$errors->get('precio')" />
+        </div>
+
         <div class="form-grid__full">
             <x-input-label for="descripcion" value="Descripción" />
             <textarea id="descripcion" name="descripcion" rows="3" maxlength="1000" class="form-input"

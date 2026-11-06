@@ -224,6 +224,25 @@ class MisCitasTest extends TestCase
         $this->assertSame(Cita::PROGRAMADA, Cita::find($ajena)->estado);
     }
 
+    // --- Precio -------------------------------------------------------------------
+
+    public function test_el_precio_se_ve_al_solicitar_y_en_el_detalle_de_la_cita(): void
+    {
+        $idCita = $this->insertarCita($this->paciente, $this->medico, $this->cardiologia, $this->lunes, '08:00', '08:30');
+        $consulta = ['especialidad' => $this->cardiologia->id_especialidad, 'fecha' => $this->lunes];
+        $recepcion = $this->cuenta('recepcion', 'Recepcionista');
+
+        // Sin precio asignado no se muestra ninguno.
+        $this->actingAs($this->paciente)->get(route('mis-citas.create', $consulta))->assertOk()->assertDontSee('Precio de la consulta');
+        $this->actingAs($this->paciente)->get(route('mis-citas.show', $idCita))->assertOk()->assertDontSee('Precio de la consulta');
+
+        $this->cardiologia->update(['precio' => '250']);
+
+        $this->actingAs($this->paciente)->get(route('mis-citas.create', $consulta))->assertSee('Precio de la consulta: Bs 250.00');
+        $this->actingAs($this->paciente)->get(route('mis-citas.show', $idCita))->assertSee('Bs 250.00');
+        $this->actingAs($recepcion)->get(route('citas.show', $idCita))->assertOk()->assertSee('Bs 250.00');
+    }
+
     // --- Menú --------------------------------------------------------------------
 
     public function test_el_menu_del_paciente_enlaza_sus_funciones(): void

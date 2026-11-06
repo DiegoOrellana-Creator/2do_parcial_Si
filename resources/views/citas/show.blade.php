@@ -17,9 +17,13 @@ $medico = $cita->medico->usuario;
                 </div>
             </div>
 
-            @can('citas.cancelar')
-                @if ($cita->esCancelable())
-                    <div class="page-heading__actions">
+            @if ($cita->esCancelable())
+                <div class="page-heading__actions">
+                    @can('citas.reprogramar')
+                        <a href="{{ route('citas.reprogramar', $cita) }}" class="btn btn--secondary">Reprogramar</a>
+                    @endcan
+
+                    @can('citas.cancelar')
                         {{-- Cancelación sin JavaScript: el botón abre la ventana; se confirma con el motivo --}}
                         <x-modal name="confirmar-cancelacion" maxWidth="md" trigger-class="btn btn--danger" :show="$errors->cancelacion->isNotEmpty()">
                             <x-slot name="trigger">Cancelar cita</x-slot>
@@ -47,9 +51,9 @@ $medico = $cita->medico->usuario;
                                 </div>
                             </form>
                         </x-modal>
-                    </div>
-                @endif
-            @endcan
+                    @endcan
+                </div>
+            @endif
         </div>
     </x-slot>
 
@@ -62,6 +66,9 @@ $medico = $cita->medico->usuario;
                     <div><dt>Paciente</dt><dd>{{ $paciente->nombre }} {{ $paciente->apellido }}{{ $cita->paciente->nro_ficha ? ' (' . $cita->paciente->nro_ficha . ')' : '' }}</dd></div>
                     <div><dt>Médico</dt><dd>{{ $medico->nombre }} {{ $medico->apellido }}</dd></div>
                     <div><dt>Especialidad</dt><dd>{{ $cita->especialidad->nombre }}</dd></div>
+                    @if ($cita->especialidad->precio !== null)
+                        <div><dt>Precio de la consulta</dt><dd>Bs {{ number_format((float) $cita->especialidad->precio, 2) }}</dd></div>
+                    @endif
                     <div><dt>Fecha</dt><dd>{{ Str::ucfirst(Carbon::parse($cita->fecha_cita)->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY')) }}</dd></div>
                     <div><dt>Hora</dt><dd>{{ substr($cita->hora_inicio, 0, 5) }}–{{ substr($cita->hora_fin, 0, 5) }}</dd></div>
                     <div><dt>Motivo</dt><dd class="pre-line">{{ filled($cita->motivo) ? $cita->motivo : 'Sin motivo indicado' }}</dd></div>
