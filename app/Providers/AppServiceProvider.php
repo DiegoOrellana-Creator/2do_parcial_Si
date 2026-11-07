@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Cita;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\ServiceProvider;
 
@@ -26,6 +28,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // {cobro}: una cita o una reserva pendiente de pago (las reservas no son citas todavía y {cita}
+        // no las encuentra). Una reserva anulada ya no se puede cobrar. Se registra aquí y no en
+        // routes/web.php porque ese archivo no se carga cuando las rutas están en caché (Render).
+        Route::bind('cobro', fn (string $valor) => Cita::conReservas()->where('estado', '<>', Cita::RESERVA_ANULADA)->findOrFail($valor));
+
         // Permisos de los módulos: se conceden según la tabla `permiso`
         // a través de los roles activos del usuario (ver User::tienePermiso).
         foreach (User::PERMISOS as $codigo) {

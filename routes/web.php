@@ -18,13 +18,11 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\UsuarioController;
-use App\Models\Cita;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
-// {cobro}: una cita o una reserva pendiente de pago (las reservas no son citas todavía y {cita} no
-// las encuentra). Una reserva anulada ya no se puede cobrar.
-Route::bind('cobro', fn (string $valor) => Cita::conReservas()->where('estado', '<>', Cita::RESERVA_ANULADA)->findOrFail($valor));
+// {cobro} (cita o reserva pendiente de pago) se resuelve en AppServiceProvider::boot(): aquí no
+// funcionaría con las rutas en caché (route:cache en producción).
 
 Route::get('/', function () {
     return redirect()->route('login');
