@@ -190,7 +190,7 @@ class RegistroPago
             Auditoria::registrar(Auditoria::PAGO, Auditoria::PAGOS, (int) $fila->id_pago, $detalle, (int) $cita->id_paciente);
 
             $this->confirmarCita($cita, (int) $cita->id_paciente, 'Pago en línea recibido.', $fila);
-
+            $this->cerrarOtrosIntentos($fila);
 
             return true;
         });
@@ -246,10 +246,26 @@ class RegistroPago
 
             $generada = $fila->esReserva();
             $this->confirmarCita($fila, $registradoPor, "Pago en ventanilla recibido ({$metodo}).", $pago);
+            $this->cerrarOtrosIntentos($pago);
 
             return ['status' => $generada
                 ? "Pago de {$this->bs((float) $pago->monto)} registrado: se generó la cita {$fila->codigo}."
                 : "Pago de {$this->bs((float) $pago->monto)} registrado para la cita {$fila->codigo}."];
+        });
+    }
+
+    /**
+     * Ya cobrada la cita, cierra los demás intentos en línea abiertos (otro QR o una página de
+     * pago con tarjeta) para que no se cobre dos veces. Se hace tras confirmar la transacción,
+     * porque consulta a la pasarela.
+     */
+    private function cerrarOtrosIntentos(Pago $cobrado): void
+    {
+        DB::afterCommit(function () use ($cobrado) {
+            Pago::where('id_cita', $cobrado->id_cita)->where('id_pago', '<>', $cobrado->id_pago)
+                ->where('estado_pago', Pago::PENDIENTE)->whereNotNull('id_transaccion')
+                ->get()
+                ->each(fn (Pago $otro) => $this->cerrar($otro, 'La cita ya se pagó por otro medio.'));
         });
     }
 

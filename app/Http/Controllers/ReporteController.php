@@ -47,6 +47,11 @@ class ReporteController extends Controller implements HasMiddleware
             'total' => $resumen->sum(),
             'tasaAsistencia' => $atendidas + $inasistencias > 0 ? round($atendidas / ($atendidas + $inasistencias) * 100) : null,
             'pagos' => ['cantidad' => (int) $pagos->cantidad, 'total' => (float) $pagos->total],
+            'porMetodo' => $this->pagos($filtros)
+                ->groupBy('pago.metodo_de_pago')
+                ->selectRaw("coalesce(pago.metodo_de_pago, 'Sin método') as metodo, count(*) as cantidad, coalesce(sum(pago.monto), 0) as total")
+                ->orderByDesc('total')->orderBy('metodo')
+                ->get(),
             'porEspecialidad' => $this->desglose($filtros, ['especialidad.id_especialidad', 'especialidad.nombre'], 'especialidad.nombre'),
             'porMedico' => $this->desglose($filtros, ['citas.id_medico', 'medicos.nombre', 'medicos.apellido'], "medicos.nombre || ' ' || medicos.apellido"),
             'inasistentes' => $this->citas($filtros)

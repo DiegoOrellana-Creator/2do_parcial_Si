@@ -72,6 +72,7 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
     Route::patch('citas/{cita}/confirmar', [CitaController::class, 'confirmar'])->name('citas.confirmar');
     Route::patch('citas/{cita}/atendida', [CitaController::class, 'atendida'])->name('citas.atendida');
     Route::patch('citas/{cita}/inasistencia', [CitaController::class, 'inasistencia'])->name('citas.inasistencia');
+    Route::get('citas/{cita}/comprobante', [PagoController::class, 'comprobanteVentanilla'])->name('citas.comprobante')->middleware('can:citas.ver');
     Route::middleware('can:pagos.registrar')->group(function () {
         // Cobro de una reserva (la cita se genera al pagarla) o de una cita ya registrada.
         Route::get('citas/reservas/{cobro}/cobro', [PagoController::class, 'cobroVentanilla'])->name('citas.cobro');
@@ -126,6 +127,7 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PACIENTE])->grou
     Route::post('mis-citas/{cobro}/pagar', [PagoController::class, 'pagar'])->name('mis-citas.pagar');
     Route::post('mis-citas/{cobro}/pagar-qr', [PagoController::class, 'pagarConQr'])->name('mis-citas.pagar.qr');
     Route::get('mis-citas/pagos/{pago}/qr', [PagoController::class, 'qrPaciente'])->name('mis-citas.pago.qr');
+    Route::get('mis-citas/{cita}/comprobante', [PagoController::class, 'comprobantePaciente'])->name('mis-citas.comprobante');
     Route::get('mis-citas/pagos/{pago}/retorno', [PagoController::class, 'retorno'])->name('mis-citas.pago.retorno');
     Route::get('mis-citas/pagos/{pago}/cancelado', [PagoController::class, 'cancelado'])->name('mis-citas.pago.cancelado');
 });

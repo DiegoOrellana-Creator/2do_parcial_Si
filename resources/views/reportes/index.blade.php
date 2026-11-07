@@ -132,6 +132,36 @@ $consulta = array_filter($filtros);
             </x-admin.card>
         </div>
 
+        <x-admin.card title="Ingresos por método de pago" :subtitle="$periodo . ' · según la fecha de pago'" :padding="false">
+            @if ($porMetodo->isEmpty())
+                <p class="muted card__body">No hay pagos registrados en el periodo seleccionado.</p>
+            @else
+                <div class="table-scroll">
+                    <table class="data-table data-table--compacta responsive-table">
+                        <caption class="sr-only">Ingresos por método de pago</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Método</th>
+                                <th scope="col">Pagos</th>
+                                <th scope="col">Total</th>
+                                <th scope="col">Del total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($porMetodo as $fila)
+                                <tr>
+                                    <td data-label="Método" class="cell-strong">{{ $fila->metodo }}</td>
+                                    <td data-label="Pagos">{{ $fila->cantidad }}</td>
+                                    <td data-label="Total">{{ $bs((float) $fila->total) }}</td>
+                                    <td data-label="Del total">{{ $pagos['total'] > 0 ? round((float) $fila->total / $pagos['total'] * 100) . ' %' : '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </x-admin.card>
+
         @foreach (['Citas por especialidad' => [$porEspecialidad, 'Especialidad'], 'Citas por médico' => [$porMedico, 'Médico']] as $titulo => [$filas, $columna])
             <x-admin.card :title="$titulo" :subtitle="$periodo" :padding="false">
                 @if ($filas->isEmpty())

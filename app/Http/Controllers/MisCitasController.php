@@ -27,7 +27,8 @@ class MisCitasController extends Controller
         $paciente = $this->paciente($request);
         $hoy = now()->toDateString();
 
-        $base = fn () => Cita::where('id_paciente', $paciente->id_paciente)->with(['medico.usuario', 'especialidad']);
+        $base = fn () => Cita::where('id_paciente', $paciente->id_paciente)->with(['medico.usuario', 'especialidad'])
+            ->withExists(['pagos as pagada' => fn ($q) => $q->where('estado_pago', \App\Models\Pago::PAGADO)]);
 
         return view('mis-citas.index', [
             'paciente' => $paciente,

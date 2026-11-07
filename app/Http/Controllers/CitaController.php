@@ -53,6 +53,7 @@ class CitaController extends Controller implements HasMiddleware
             ->join('users as paciente', 'paciente.id', '=', 'citas.id_paciente')
             ->join('paciente as ficha', 'ficha.id_paciente', '=', 'citas.id_paciente')
             ->with(['paciente.usuario', 'medico.usuario', 'especialidad'])
+            ->withExists(['pagos as pagada' => fn ($q) => $q->where('estado_pago', \App\Models\Pago::PAGADO)])
             ->where('citas.fecha_cita', '>=', $filtros['desde'])
             ->when($filtros['hasta'], fn ($q) => $q->where('citas.fecha_cita', '<=', $filtros['hasta']))
             ->when($filtros['estado'], fn ($q) => $q->where('citas.estado', $filtros['estado']))

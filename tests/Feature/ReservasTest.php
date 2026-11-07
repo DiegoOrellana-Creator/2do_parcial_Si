@@ -186,6 +186,24 @@ class ReservasTest extends TestCase
         $this->actingAs($this->paciente)->get(route('citas.pago.retorno', $segundo))->assertForbidden();
     }
 
+    public function test_al_cobrar_se_cierran_los_demas_intentos_abiertos(): void
+    {
+        $this->solicitar($this->recepcion);
+        $reserva = $this->ultimaReserva();
+        $this->actingAs($this->recepcion)->post(route('citas.pago.qr.generar', $reserva));
+        $qr = Pago::sole();
+        $enlace = app(RegistroPago::class)->sesionAbierta($qr)['url'];
+
+        // Se cobra en efectivo mientras el QR seguía en pantalla: el QR ya no sirve.
+        $this->cobrarReserva($this->recepcion);
+
+        $this->assertSame(Pago::FALLIDO, $qr->fresh()->estado_pago);
+        $this->assertSame(1, Pago::where('estado_pago', Pago::PAGADO)->count());
+        $this->app['auth']->forgetGuards();
+        $this->get($enlace)->assertNotFound();
+        $this->assertStringContainsString('La cita ya se pagó por otro medio.', \App\Models\Bitacora::where('modulo', 'Pagos')->where('id_registro', $qr->id_pago)->value('detalle'));
+    }
+
     public function test_sin_precio_no_se_registra_la_cita(): void
     {
         $this->cardiologia->update(['precio' => null]);

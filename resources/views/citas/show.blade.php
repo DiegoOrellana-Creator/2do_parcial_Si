@@ -175,6 +175,12 @@ $pagado = $cita->pagos->firstWhere('estado_pago', \App\Models\Pago::PAGADO);
                 </div>
             @endif
 
+            @if ($pagado)
+                <div class="card__body">
+                    <a href="{{ route('citas.comprobante', $cita) }}" class="btn btn--secondary">Ver comprobante</a>
+                </div>
+            @endif
+
             @can('pagos.registrar')
                 @if ($cita->admitePagoEnVentanilla())
                     <form method="POST" action="{{ route('citas.pago', $cita) }}" class="card__body search-form">

@@ -43,6 +43,7 @@ use Illuminate\Support\Carbon;
                                     <th scope="col">Médico</th>
                                     <th scope="col">Especialidad</th>
                                     <th scope="col">Estado</th>
+                                    <th scope="col">Pago</th>
                                     <th scope="col"><span class="sr-only">Acciones</span></th>
                                 </tr>
                             </thead>
@@ -56,6 +57,7 @@ use Illuminate\Support\Carbon;
                                         <td data-label="Médico">{{ $cita->medico->usuario->nombre }} {{ $cita->medico->usuario->apellido }}</td>
                                         <td data-label="Especialidad">{{ $cita->especialidad->nombre }}</td>
                                         <td data-label="Estado"><x-admin.status-badge :status="$cita->estado" /></td>
+                                        <td data-label="Pago"><x-admin.status-badge :status="$cita->pagada ? 'Pagada' : 'Sin pagar'" /></td>
                                         <td class="cell-actions">
                                             <a href="{{ route('mis-citas.show', $cita) }}" class="btn btn--secondary btn--sm">Ver<span class="sr-only"> cita {{ $cita->codigo }}</span></a>
                                         </td>

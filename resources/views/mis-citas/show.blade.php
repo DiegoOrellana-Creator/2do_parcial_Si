@@ -103,6 +103,9 @@ $pagoSimulado = config('pagos.pasarela') !== 'stripe';
                     <div><dt>Fecha de pago</dt><dd>{{ $pagado->fecha_pago?->format('d/m/Y H:i') ?? '—' }}</dd></div>
                     <div><dt>N.º de comprobante</dt><dd>{{ $pagado->id_pago }}</dd></div>
                 </dl>
+                <div class="form-actions">
+                    <a href="{{ route('mis-citas.comprobante', $cita) }}" class="btn btn--secondary">Ver comprobante</a>
+                </div>
             @elseif ($cita->admitePagoEnLinea())
                 <p class="section-text">Importe a pagar: <strong>Bs {{ number_format($cita->precioCobrable(), 2, ',', '.') }}</strong>. Al pagar, tu cita queda confirmada.</p>
                 <div class="form-actions">

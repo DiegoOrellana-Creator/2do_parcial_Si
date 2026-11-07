@@ -183,6 +183,30 @@ class PagoController extends Controller
             : redirect()->to($this->destino($cita, true))->with('status', 'Se anuló el código QR: no se realizó ningún cobro.');
     }
 
+    // --- Comprobante ----------------------------------------------------------------------
+
+    public function comprobantePaciente(Request $request, Cita $cita): View
+    {
+        $this->propia($request, $cita);
+
+        return $this->comprobante($cita, route('mis-citas.show', $cita));
+    }
+
+    public function comprobanteVentanilla(Cita $cita): View
+    {
+        return $this->comprobante($cita, route('citas.show', $cita));
+    }
+
+    /** Recibo imprimible del pago de la cita; sin pago registrado, no hay comprobante. */
+    private function comprobante(Cita $cita, string $volver): View
+    {
+        $pago = $cita->pagos()->where('estado_pago', Pago::PAGADO)->orderBy('id_pago')->first();
+        abort_unless($pago, 404);
+        $cita->load(['paciente.usuario', 'medico.usuario', 'especialidad']);
+
+        return view('pagos.comprobante', compact('cita', 'pago', 'volver'));
+    }
+
     // --- Páginas públicas firmadas (se abren en el celular desde el QR) ----------------
 
     public function simulado(Request $request, Pago $pago): View

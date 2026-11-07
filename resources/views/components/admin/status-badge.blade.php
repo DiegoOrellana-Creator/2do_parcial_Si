@@ -8,6 +8,9 @@ $modifiers = [
     'Atendida' => 'atendida',
     'Cancelada' => 'cancelada',
     'No asistió' => 'no-asistio',
+    // Estado del pago de la cita.
+    'Pagada' => 'confirmada',
+    'Sin pagar' => 'no-asistio',
 ];
 @endphp
 
