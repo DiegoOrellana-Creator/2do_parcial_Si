@@ -10,8 +10,8 @@ use Illuminate\Support\Carbon;
 /**
  * Tabla `citas`. Estados usados por el proyecto (components/admin/status-badge.blade.php):
  * Programada (valor por defecto de la columna), Confirmada, Atendida, Cancelada y No asistió.
- * Se registran citas «Programada», se reprograman (vuelven a «Programada») y se cancelan
- * («Cancelada»); confirmar y registrar asistencia corresponden al Ciclo 2.
+ * Se registran citas «Programada», se confirman, se reprograman (vuelven a «Programada»), se
+ * cancelan y, llegada su hora, se registran como «Atendida» o «No asistió».
  */
 class Cita extends Model
 {
@@ -88,6 +88,18 @@ class Cita extends Model
     public function inicio(): Carbon
     {
         return Carbon::parse($this->fecha_cita . ' ' . substr($this->hora_inicio, 0, 5));
+    }
+
+    /** Se confirma una cita programada que todavía no empezó. */
+    public function puedeConfirmarse(): bool
+    {
+        return $this->estado === self::PROGRAMADA && $this->inicio()->isFuture();
+    }
+
+    /** La asistencia se registra en una cita vigente cuando ya llegó su hora. */
+    public function puedeRegistrarAsistencia(): bool
+    {
+        return in_array($this->estado, self::ESTADOS_CANCELABLES, true) && ! $this->inicio()->isFuture();
     }
 
     /** Se puede cancelar si sigue vigente y todavía no empezó. */

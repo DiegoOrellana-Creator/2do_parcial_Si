@@ -42,6 +42,12 @@ class AppServiceProvider extends ServiceProvider
         // Reprogramar equivale a cancelar una hora y registrar otra: exige ambos permisos existentes.
         Gate::define('citas.reprogramar', fn (User $user) => $user->tienePermiso('citas.crear') && $user->tienePermiso('citas.cancelar'));
 
+        // Confirmar citas y registrar asistencia: quien gestiona el estado de las citas.
+        Gate::define('citas.asistencia', fn (User $user) => $user->tienePermiso('citas.cancelar'));
+
+        // Desbloquear a un paciente: exclusivo del administrador.
+        Gate::define('pacientes.desbloquear', fn (User $user) => $user->esAdministrador());
+
         // Bitácora: exclusiva del administrador (no depende de filas en `permiso`).
         Gate::define('bitacora.ver', fn (User $user) => $user->esAdministrador());
 

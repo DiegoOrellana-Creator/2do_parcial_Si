@@ -25,12 +25,43 @@ $valor = fn ($dato) => filled($dato) ? $dato : null;
                 @can('pacientes.editar')
                     <a href="{{ route('pacientes.edit', $paciente) }}" class="btn btn--primary">Editar</a>
                 @endcan
+
+                @can('pacientes.desbloquear')
+                    @if ($paciente->bloqueado)
+                        {{-- Sin JavaScript: el botón abre la ventana; el desbloqueo se aplica al confirmar --}}
+                        <x-modal name="confirmar-desbloqueo" maxWidth="md" trigger-class="btn btn--secondary">
+                            <x-slot name="trigger">Desbloquear</x-slot>
+
+                            <form method="POST" action="{{ route('pacientes.desbloquear', $paciente) }}" class="modal__body">
+                                @csrf
+                                @method('PATCH')
+
+                                <h2 class="section-title">¿Desbloquear a {{ $usuario->nombre }} {{ $usuario->apellido }}?</h2>
+                                <p class="section-text">
+                                    Podrá volver a solicitar citas y su contador de inasistencias volverá a 0.
+                                    Sus citas y sus bloqueos anteriores se conservan.
+                                </p>
+
+                                <div class="modal__actions">
+                                    <a href="{{ route('pacientes.show', $paciente) }}" class="btn btn--secondary">Volver</a>
+                                    <x-primary-button>Desbloquear</x-primary-button>
+                                </div>
+                            </form>
+                        </x-modal>
+                    @endif
+                @endcan
             </div>
         </div>
     </x-slot>
 
     <div class="page">
         <x-admin.flash />
+
+        @if ($paciente->bloqueado)
+            <div class="notice notice--error" role="alert">
+                Este paciente está bloqueado por inasistencias ({{ $paciente->inasistencia }}) y no puede registrar citas. Solo el administrador puede desbloquearlo.
+            </div>
+        @endif
 
         <div class="dashboard-grid dashboard-grid--halves">
             <x-admin.card title="Datos personales">

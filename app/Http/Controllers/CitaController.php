@@ -10,6 +10,7 @@ use App\Models\HistorialEstadoCita;
 use App\Models\Medico;
 use App\Models\Paciente;
 use App\Models\User;
+use App\Services\AsistenciaCita;
 use App\Services\Auditoria;
 use App\Services\Disponibilidad;
 use App\Services\RegistroCita;
@@ -24,8 +25,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * Gestión de citas: listar, consultar, registrar, reprogramar y cancelar.
- * Confirmar y registrar asistencia corresponden al Ciclo 2.
+ * Gestión de citas: listar, consultar, registrar, confirmar, reprogramar, cancelar y registrar asistencia.
  */
 class CitaController extends Controller implements HasMiddleware
 {
@@ -36,6 +36,7 @@ class CitaController extends Controller implements HasMiddleware
             new Middleware('can:citas.crear', only: ['create', 'store']),
             new Middleware('can:citas.cancelar', only: ['cancelar']),
             new Middleware('can:citas.reprogramar', only: ['reprogramar', 'guardarReprogramacion']),
+            new Middleware('can:citas.asistencia', only: ['confirmar', 'atendida', 'inasistencia']),
         ];
     }
 
@@ -167,6 +168,31 @@ class CitaController extends Controller implements HasMiddleware
         return redirect()
             ->route('citas.show', $cita)
             ->with('status', "Cita {$cita->codigo} reprogramada correctamente.");
+    }
+
+    public function confirmar(Request $request, Cita $cita, AsistenciaCita $asistencia): RedirectResponse
+    {
+        return $this->volverACita($cita, $asistencia->confirmar($cita, $request->user()->id));
+    }
+
+    public function atendida(Request $request, Cita $cita, AsistenciaCita $asistencia): RedirectResponse
+    {
+        return $this->volverACita($cita, $asistencia->registrarAtendida($cita, $request->user()->id));
+    }
+
+    public function inasistencia(Request $request, Cita $cita, AsistenciaCita $asistencia): RedirectResponse
+    {
+        return $this->volverACita($cita, $asistencia->registrarInasistencia($cita, $request->user()->id));
+    }
+
+    /**
+     * @param  array{status?: string, error?: string}  $resultado
+     */
+    private function volverACita(Cita $cita, array $resultado): RedirectResponse
+    {
+        return redirect()
+            ->route('citas.show', $cita)
+            ->with(isset($resultado['error']) ? 'error' : 'status', $resultado['error'] ?? $resultado['status']);
     }
 
     public function cancelar(Request $request, Cita $cita): RedirectResponse

@@ -50,6 +50,10 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
         ->only(['index', 'create', 'store', 'show'])
         ->parameters(['citas' => 'cita']);
     Route::patch('citas/{cita}/cancelar', [CitaController::class, 'cancelar'])->name('citas.cancelar');
+    Route::patch('citas/{cita}/confirmar', [CitaController::class, 'confirmar'])->name('citas.confirmar');
+    Route::patch('citas/{cita}/atendida', [CitaController::class, 'atendida'])->name('citas.atendida');
+    Route::patch('citas/{cita}/inasistencia', [CitaController::class, 'inasistencia'])->name('citas.inasistencia');
+    Route::patch('pacientes/{paciente}/desbloquear', [PacienteController::class, 'desbloquear'])->name('pacientes.desbloquear');
     Route::get('citas/{cita}/reprogramar', [CitaController::class, 'reprogramar'])->name('citas.reprogramar');
     Route::patch('citas/{cita}/reprogramar', [CitaController::class, 'guardarReprogramacion'])->name('citas.reprogramar.guardar');
     // Solo lectura y solo para el administrador (Gate «bitacora.ver»).

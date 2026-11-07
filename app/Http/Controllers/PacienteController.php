@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\PacienteRequest;
 use App\Models\Paciente;
 use App\Models\User;
+use App\Services\AsistenciaCita;
 use App\Services\Auditoria;
 use App\Services\DependenciasUsuario;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +28,7 @@ class PacienteController extends Controller implements HasMiddleware
             new Middleware('can:pacientes.ver', only: ['index', 'show']),
             new Middleware('can:pacientes.crear', only: ['create', 'store']),
             new Middleware('can:pacientes.editar', only: ['edit', 'update']),
+            new Middleware('can:pacientes.desbloquear', only: ['desbloquear']),
         ];
     }
 
@@ -183,6 +185,15 @@ class PacienteController extends Controller implements HasMiddleware
             'email' => $datos['email'],
             'username' => $datos['username'],
         ];
+    }
+
+    public function desbloquear(Request $request, Paciente $paciente, AsistenciaCita $asistencia): RedirectResponse
+    {
+        $resultado = $asistencia->desbloquear($paciente, $request->user()->id);
+
+        return redirect()
+            ->route('pacientes.show', $paciente)
+            ->with(isset($resultado['error']) ? 'error' : 'status', $resultado['error'] ?? $resultado['status']);
     }
 
     /**

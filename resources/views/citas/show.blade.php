@@ -17,8 +17,49 @@ $medico = $cita->medico->usuario;
                 </div>
             </div>
 
-            @if ($cita->esCancelable())
+            @if ($cita->esCancelable() || $cita->puedeRegistrarAsistencia())
                 <div class="page-heading__actions">
+                    @can('citas.asistencia')
+                        @if ($cita->puedeConfirmarse())
+                            <form method="POST" action="{{ route('citas.confirmar', $cita) }}">
+                                @csrf
+                                @method('PATCH')
+                                <button type="submit" class="btn btn--primary">Confirmar</button>
+                            </form>
+                        @endif
+
+                        @if ($cita->puedeRegistrarAsistencia())
+                            <form method="POST" action="{{ route('citas.atendida', $cita) }}">
+                                @csrf
+                                @method('PATCH')
+                                <button type="submit" class="btn btn--primary">Marcar atendida</button>
+                            </form>
+
+                            {{-- Sin JavaScript: el botón abre la ventana; la inasistencia se registra al confirmar --}}
+                            <x-modal name="confirmar-inasistencia" maxWidth="md" trigger-class="btn btn--danger">
+                                <x-slot name="trigger">No asistió</x-slot>
+
+                                <form method="POST" action="{{ route('citas.inasistencia', $cita) }}" class="modal__body">
+                                    @csrf
+                                    @method('PATCH')
+
+                                    <h2 class="section-title">¿Registrar la inasistencia?</h2>
+                                    <p class="section-text">
+                                        {{ $paciente->nombre }} {{ $paciente->apellido }} tiene {{ $cita->paciente->inasistencia }}
+                                        {{ $cita->paciente->inasistencia === 1 ? 'inasistencia' : 'inasistencias' }}.
+                                        Al llegar a {{ \App\Services\AsistenciaCita::INASISTENCIAS_PARA_BLOQUEO }} queda bloqueado y solo el administrador puede desbloquearlo.
+                                    </p>
+
+                                    <div class="modal__actions">
+                                        <a href="{{ route('citas.show', $cita) }}" class="btn btn--secondary">Volver</a>
+                                        <x-danger-button>Registrar inasistencia</x-danger-button>
+                                    </div>
+                                </form>
+                            </x-modal>
+                        @endif
+                    @endcan
+
+                    @if ($cita->esCancelable())
                     @can('citas.reprogramar')
                         <a href="{{ route('citas.reprogramar', $cita) }}" class="btn btn--secondary">Reprogramar</a>
                     @endcan
@@ -52,6 +93,7 @@ $medico = $cita->medico->usuario;
                             </form>
                         </x-modal>
                     @endcan
+                    @endif
                 </div>
             @endif
         </div>

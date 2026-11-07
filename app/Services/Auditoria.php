@@ -50,6 +50,10 @@ class Auditoria
 
     public const REPROGRAMAR = 'Reprogramación';
 
+    public const BLOQUEO = 'Bloqueo';
+
+    public const DESBLOQUEO = 'Desbloqueo';
+
     public const CAMBIO_CONTRASENA = 'Cambio de contraseña';
 
     /** Campos que nunca se nombran ni se guardan en el detalle. */
