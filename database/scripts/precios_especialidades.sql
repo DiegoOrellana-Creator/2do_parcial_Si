@@ -11,6 +11,12 @@ BEGIN;
 UPDATE especialidad AS e
 SET precio = p.precio
 FROM (VALUES
+    -- Precios que la base local ya tenía antes de este script.
+    ('Cardiología',               200.00),
+    ('Dermatología',              200.00),
+    ('Geriatría',                 150.00),
+    ('Medicina General',          150.00),
+    ('Medicina Interna',          250.00),
     ('Ginecología y Obstetricia', 250.00),
     ('Reumatología',              300.00),
     ('Gastroenterología',         300.00),
