@@ -15,10 +15,46 @@ $paciente = $cita->paciente->usuario;
                     <span class="page-subtitle">{{ Carbon::parse($cita->fecha_cita)->format('d/m/Y') }} · {{ substr($cita->hora_inicio, 0, 5) }}–{{ substr($cita->hora_fin, 0, 5) }}</span>
                 </div>
             </div>
+
+            @if ($cita->puedeRegistrarAsistencia())
+                <div class="page-heading__actions">
+                    <form method="POST" action="{{ route('consultas.atendida', $cita) }}">
+                        @csrf
+                        @method('PATCH')
+                        <button type="submit" class="btn btn--primary">Marcar atendida</button>
+                    </form>
+
+                    {{-- Sin JavaScript: el botón abre la ventana; la inasistencia se registra al confirmar --}}
+                    <x-modal name="confirmar-inasistencia" maxWidth="md" trigger-class="btn btn--danger">
+                        <x-slot name="trigger">No asistió</x-slot>
+
+                        <form method="POST" action="{{ route('consultas.inasistencia', $cita) }}" class="modal__body">
+                            @csrf
+                            @method('PATCH')
+
+                            <h2 class="section-title">¿Registrar la inasistencia?</h2>
+                            <p class="section-text">
+                                {{ $paciente->nombre }} {{ $paciente->apellido }} tiene {{ $cita->paciente->inasistencia }}
+                                {{ $cita->paciente->inasistencia === 1 ? 'inasistencia' : 'inasistencias' }}.
+                                Al llegar a {{ \App\Services\AsistenciaCita::INASISTENCIAS_PARA_BLOQUEO }} queda bloqueado y solo el administrador puede desbloquearlo.
+                            </p>
+
+                            <div class="modal__actions">
+                                <a href="{{ route('consultas.show', $cita) }}" class="btn btn--secondary">Volver</a>
+                                <x-danger-button>Registrar inasistencia</x-danger-button>
+                            </div>
+                        </form>
+                    </x-modal>
+                </div>
+            @elseif (in_array($cita->estado, \App\Models\Cita::ESTADOS_CANCELABLES, true))
+                <p class="field-hint">La asistencia se registra cuando llegue la hora de la cita.</p>
+            @endif
         </div>
     </x-slot>
 
     <div class="page">
+        <x-admin.flash />
+
         <div class="dashboard-grid dashboard-grid--halves">
             <x-admin.card title="Datos de la cita">
                 <dl class="detail-list">

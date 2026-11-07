@@ -108,6 +108,9 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
 Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_MEDICO])->group(function () {
     Route::get('mis-consultas', [MisConsultasController::class, 'index'])->name('consultas.index');
     Route::get('mis-consultas/{cita}', [MisConsultasController::class, 'show'])->name('consultas.show');
+    // El médico registra la asistencia de sus propias citas (atendida o no asistió).
+    Route::patch('mis-consultas/{cita}/atendida', [MisConsultasController::class, 'atendida'])->name('consultas.atendida');
+    Route::patch('mis-consultas/{cita}/inasistencia', [MisConsultasController::class, 'inasistencia'])->name('consultas.inasistencia');
 });
 
 // Funciones del paciente: solo cuentas con perfil paciente, y siempre sobre su propia ficha.

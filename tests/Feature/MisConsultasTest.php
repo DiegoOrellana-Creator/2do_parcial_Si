@@ -134,6 +134,48 @@ class MisConsultasTest extends TestCase
         $this->assertSame([Cita::PROGRAMADA, Cita::PROGRAMADA], [$futura->fresh()->estado, $pasada->fresh()->estado]);
     }
 
+    public function test_el_medico_registra_la_asistencia_de_sus_citas(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $atendida = $this->cita($this->medico, $this->pasado);
+        $falta = $this->cita($this->medico, $this->pasado, Cita::CONFIRMADA, '09:00', '09:30');
+
+        $html = $this->actingAs($this->medico)->get(route('consultas.show', $atendida))->assertOk()
+            ->assertSee('Marcar atendida')->assertSee('No asistió')->getContent();
+        $this->sinJavascript($html);
+
+        $this->actingAs($this->medico)->patch(route('consultas.atendida', $atendida))
+            ->assertRedirect(route('consultas.show', $atendida))->assertSessionHas('status');
+        $this->assertSame(Cita::ATENDIDA, $atendida->fresh()->estado);
+        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $atendida->id_cita, 'estado_nuevo' => Cita::ATENDIDA, 'registrado_por' => $this->medico->id]);
+
+        $this->actingAs($this->medico)->patch(route('consultas.inasistencia', $falta))->assertSessionHas('status');
+        $this->assertSame(Cita::NO_ASISTIO, $falta->fresh()->estado);
+        $this->assertSame(1, (int) DB::table('paciente')->where('id_paciente', $this->paciente->id)->value('inasistencia'));
+        $this->assertDatabaseHas('notificacion', ['id_usuario' => $this->paciente->id, 'tipo' => 'Inasistencia']);
+
+        // Ya registrada, no se vuelve a cambiar.
+        $this->actingAs($this->medico)->patch(route('consultas.inasistencia', $atendida))->assertSessionHas('error');
+        $this->assertSame(Cita::ATENDIDA, $atendida->fresh()->estado);
+        $this->actingAs($this->medico)->get(route('consultas.show', $atendida))->assertDontSee('Marcar atendida');
+    }
+
+    public function test_el_medico_no_registra_asistencia_antes_de_hora_ni_de_citas_ajenas(): void
+    {
+        $futura = $this->cita($this->medico, $this->futuro);
+        $ajena = $this->cita($this->otroMedico, $this->pasado);
+
+        $this->actingAs($this->medico)->get(route('consultas.show', $futura))->assertDontSee('Marcar atendida')
+            ->assertSee('La asistencia se registra cuando llegue la hora de la cita.');
+        $this->actingAs($this->medico)->patch(route('consultas.atendida', $futura))->assertSessionHas('error');
+        $this->actingAs($this->medico)->patch(route('consultas.atendida', $ajena))->assertNotFound();
+        $this->actingAs($this->medico)->patch(route('consultas.inasistencia', $ajena))->assertNotFound();
+
+        // Solo el perfil médico usa estas rutas.
+        $this->actingAs($this->paciente)->patch(route('consultas.atendida', $ajena))->assertForbidden();
+        $this->assertSame([Cita::PROGRAMADA, Cita::PROGRAMADA], [$futura->fresh()->estado, $ajena->fresh()->estado]);
+    }
+
     public function test_menu_e_inicio_del_medico_enlazan_mis_citas(): void
     {
         $html = $this->actingAs($this->medico)->get(route('dashboard'))->assertOk()
