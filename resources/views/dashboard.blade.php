@@ -13,8 +13,8 @@ $accesosRapidos = [
     ['label' => 'Nueva cita', 'route' => 'citas.create', 'icon' => 'plus', 'can' => 'citas.crear'],
     ['label' => 'Registrar paciente', 'route' => 'pacientes.create', 'icon' => 'user-plus', 'can' => 'pacientes.crear'],
     ['label' => 'Ver agenda', 'route' => 'agenda.index', 'icon' => 'calendar', 'can' => 'agenda.ver'],
-    // Reportes: Ciclo 2.
-    ['label' => 'Generar reporte', 'route' => null, 'icon' => 'chart-bar'],
+    // Solo se muestra a quien puede ver los reportes (el administrador).
+    ...(Gate::allows('reportes.ver') ? [['label' => 'Ver reportes', 'route' => 'reportes.index', 'icon' => 'chart-bar', 'can' => 'reportes.ver']] : []),
 ];
 
 $maximoEspecialidad = max(1, (int) $porEspecialidad->max('total'));

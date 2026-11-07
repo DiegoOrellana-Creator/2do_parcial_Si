@@ -26,9 +26,8 @@ $menus = [
             ['label' => 'Gestión de citas', 'route' => 'citas.index', 'icon' => 'clipboard', 'can' => 'citas.ver'],
             ['label' => 'Agenda médica', 'route' => 'agenda.index', 'icon' => 'calendar', 'can' => 'agenda.ver'],
         ],
-        // Ciclo 2: se conservan como referencia, sin implementar.
         'Análisis' => [
-            ['label' => 'Reportes', 'route' => null, 'icon' => 'chart-bar'],
+            ['label' => 'Reportes', 'route' => 'reportes.index', 'icon' => 'chart-bar', 'can' => 'reportes.ver'],
         ],
         'Administración' => [
             ['label' => 'Usuarios', 'route' => 'usuarios.index', 'icon' => 'user-circle', 'can' => 'usuarios.gestionar'],

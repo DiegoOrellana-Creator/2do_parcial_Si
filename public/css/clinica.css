@@ -2127,3 +2127,9 @@ fieldset[aria-invalid="true"] .checkbox-option {
 .permiso-modulo {
     margin: 1rem 0 0.5rem;
 }
+
+/* Reportes: tablas con muchas columnas numéricas */
+.data-table--compacta th,
+.data-table--compacta td {
+    padding: 0.625rem 0.5rem;
+}

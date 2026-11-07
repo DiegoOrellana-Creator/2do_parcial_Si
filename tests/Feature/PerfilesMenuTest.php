@@ -231,7 +231,7 @@ class PerfilesMenuTest extends TestCase
 
         $this->assertSame(self::MENU_PERSONAL, $etiquetas);
         // Sin permisos cargados, solo Dashboard y la Bitácora (exclusiva del administrador, no depende de permisos).
-        $this->assertSame([route('dashboard'), route('usuarios.index'), route('roles.index'), route('bitacora.index'), route('profile.edit')], $enlaces);
+        $this->assertSame([route('dashboard'), route('reportes.index'), route('usuarios.index'), route('roles.index'), route('bitacora.index'), route('profile.edit')], $enlaces);
     }
 
     public function test_la_recepcionista_tiene_su_propio_menu_sin_opciones_administrativas(): void

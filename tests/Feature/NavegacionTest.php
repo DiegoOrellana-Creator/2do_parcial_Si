@@ -18,10 +18,8 @@ class NavegacionTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** Módulos del Ciclo 2: siguen en el menú, desactivados. */
-    private const MODULOS_PENDIENTES = [
-        'Reportes',
-    ];
+    /** Módulos todavía sin implementar: siguen en el menú, desactivados. Ya no queda ninguno. */
+    private const MODULOS_PENDIENTES = [];
 
     protected function setUp(): void
     {
@@ -108,7 +106,7 @@ class NavegacionTest extends TestCase
         $this->assertSame([
             route('dashboard'), route('pacientes.index'), route('medicos.index'), route('especialidades.index'),
             route('horarios.index'), route('disponibilidad.index'), route('citas.index'), route('agenda.index'),
-            route('usuarios.index'), route('roles.index'), route('bitacora.index'), route('profile.edit'),
+            route('reportes.index'), route('usuarios.index'), route('roles.index'), route('bitacora.index'), route('profile.edit'),
         ], $enlaces[1]);
     }
 

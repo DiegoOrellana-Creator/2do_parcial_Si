@@ -13,6 +13,7 @@ use App\Http\Controllers\MisCitasController;
 use App\Http\Controllers\MisConsultasController;
 use App\Http\Controllers\PacienteController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\UsuarioController;
 use App\Models\User;
@@ -73,6 +74,9 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
     Route::resource('roles', RolController::class)
         ->except(['show', 'destroy'])
         ->parameters(['roles' => 'rol']);
+    // Solo consulta y solo para el administrador (Gate «reportes.ver»).
+    Route::get('reportes', [ReporteController::class, 'index'])->name('reportes.index');
+    Route::get('reportes/exportar', [ReporteController::class, 'exportar'])->name('reportes.exportar');
     // Solo lectura y solo para el administrador (Gate «bitacora.ver»).
     Route::get('bitacora', [BitacoraController::class, 'index'])->name('bitacora.index');
 });

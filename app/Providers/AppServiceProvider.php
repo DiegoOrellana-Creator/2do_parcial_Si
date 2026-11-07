@@ -41,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
         // Desbloquear a un paciente: exclusivo del administrador.
         Gate::define('pacientes.desbloquear', fn (User $user) => $user->esAdministrador());
 
+        // Reportes: exclusivo del administrador.
+        Gate::define('reportes.ver', fn (User $user) => $user->esAdministrador());
+
         // Roles y permisos: exclusivo del administrador.
         Gate::define('roles.gestionar', fn (User $user) => $user->esAdministrador());
 

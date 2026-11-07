@@ -39,6 +39,8 @@ class Auditoria
 
     public const ROLES = 'Roles y permisos';
 
+    public const REPORTES = 'Reportes';
+
     // Acciones
     public const INICIO_SESION = 'Inicio de sesión';
 
@@ -61,6 +63,8 @@ class Auditoria
     public const DESBLOQUEO = 'Desbloqueo';
 
     public const CAMBIO_CONTRASENA = 'Cambio de contraseña';
+
+    public const EXPORTAR = 'Exportación';
 
     /** Campos que nunca se nombran ni se guardan en el detalle. */
     private const CAMPOS_SENSIBLES = ['password', 'remember_token', 'updated_at', 'created_at'];
