@@ -62,9 +62,10 @@ class BitacoraTest extends TestCase
             $this->actingAs($otro)->get(route('bitacora.index'))->assertForbidden();
         }
 
-        // Un administrador con la cuenta inactiva tampoco.
+        // Un administrador con la cuenta inactiva tampoco: se le cierra la sesión.
         DB::table('users')->where('id', $porFicha->id)->update(['estado' => User::ESTADO_INACTIVO]);
-        $this->actingAs($porFicha->fresh())->get(route('bitacora.index'))->assertForbidden();
+        $this->actingAs($porFicha->fresh())->get(route('bitacora.index'))->assertRedirect(route('login'));
+        $this->assertGuest();
     }
 
     public function test_los_registros_no_se_modifican_ni_se_eliminan(): void

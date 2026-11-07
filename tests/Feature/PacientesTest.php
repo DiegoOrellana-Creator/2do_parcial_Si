@@ -110,7 +110,8 @@ class PacientesTest extends TestCase
     {
         $usuario = $this->usuario(['estado' => 'Inactivo'], 'Administrador');
 
-        $this->actingAs($usuario)->get(route('pacientes.index'))->assertForbidden();
+        $this->actingAs($usuario)->get(route('pacientes.index'))->assertRedirect(route('login'));
+        $this->assertGuest();
     }
 
     public function test_la_recepcionista_puede_listar_y_registrar_pero_no_eliminar(): void

@@ -48,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
         ResetPassword::toMailUsing(function (object $notifiable, string $token) {
             return (new MailMessage)
                 ->subject('Recuperar Contraseña - Clínica Santa Cruz')
-                ->greeting('¡Hola ' . $notifiable->name . '!')
+                ->greeting('¡Hola ' . $notifiable->nombre . '!')
                 ->line('Estás recibiendo este correo porque solicitaste restablecer tu contraseña.')
                 ->action('Restablecer Contraseña', url(route('password.reset', [
                     'token' => $token,

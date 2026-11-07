@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // formularios) se generen con https y que la IP registrada sea la del usuario.
         $middleware->trustProxies(at: '*');
 
+        $middleware->web(append: [
+            \App\Http\Middleware\VerificarCuentaActiva::class,
+        ]);
+
         $middleware->alias([
             'perfil' => \App\Http\Middleware\VerificarPerfil::class,
         ]);

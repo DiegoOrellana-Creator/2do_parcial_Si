@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Paciente;
 use App\Models\User;
+use App\Rules\UsuarioNoReservado;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -45,7 +46,7 @@ class PacienteRequest extends FormRequest
 
             // Cuenta (tabla users)
             'email' => ['required', 'string', 'email', 'max:100', Rule::unique('users', 'email')->ignore($idUsuario)],
-            'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', Rule::unique('users', 'username')->ignore($idUsuario)],
+            'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', new UsuarioNoReservado($idUsuario ? (int) $idUsuario : null), Rule::unique('users', 'username')->ignore($idUsuario)],
 
             // Activar o desactivar una cuenta existente: solo el administrador.
             ...($paciente && $this->user()->esAdministrador() ? ['estado' => ['sometimes', Rule::in(User::ESTADOS)]] : []),

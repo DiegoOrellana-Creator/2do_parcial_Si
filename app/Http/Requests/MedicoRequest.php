@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Especialidad;
 use App\Models\Medico;
 use App\Models\User;
+use App\Rules\UsuarioNoReservado;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +49,7 @@ class MedicoRequest extends FormRequest
 
             // Cuenta (tabla users)
             'email' => ['required', 'string', 'email', 'max:100', Rule::unique('users', 'email')->ignore($idUsuario)],
-            'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', Rule::unique('users', 'username')->ignore($idUsuario)],
+            'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', new UsuarioNoReservado($idUsuario ? (int) $idUsuario : null), Rule::unique('users', 'username')->ignore($idUsuario)],
             'estado' => ['required', Rule::in(User::ESTADOS)],
 
             // Contraseña: solo al registrar; al editar no se pide ni se cambia.
