@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\PacienteRequest;
+use App\Models\Cita;
 use App\Models\Paciente;
 use App\Models\User;
 use App\Services\AsistenciaCita;
@@ -25,7 +26,7 @@ class PacienteController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('can:pacientes.ver', only: ['index', 'show']),
+            new Middleware('can:pacientes.ver', only: ['index', 'show', 'citas']),
             new Middleware('can:pacientes.crear', only: ['create', 'store']),
             new Middleware('can:pacientes.editar', only: ['edit', 'update']),
             new Middleware('can:pacientes.desbloquear', only: ['desbloquear']),
@@ -122,6 +123,37 @@ class PacienteController extends Controller implements HasMiddleware
             ->get();
 
         return view('pacientes.show', compact('paciente', 'citas', 'totalCitas', 'bloqueos'));
+    }
+
+    /**
+     * Historial completo de citas del paciente, de la más reciente a la más antigua.
+     */
+    public function citas(Request $request, Paciente $paciente): View
+    {
+        $paciente->load('usuario');
+
+        $filtros = [
+            'estado' => in_array($request->query('estado'), Cita::ESTADOS, true) ? $request->query('estado') : '',
+            'desde' => $this->fechaValida($request->query('desde')),
+            'hasta' => $this->fechaValida($request->query('hasta')),
+        ];
+
+        $citas = Cita::where('id_paciente', $paciente->id_paciente)
+            ->with(['medico.usuario', 'especialidad'])
+            ->when($filtros['estado'] !== '', fn ($q) => $q->where('estado', $filtros['estado']))
+            ->when($filtros['desde'], fn ($q) => $q->where('fecha_cita', '>=', $filtros['desde']))
+            ->when($filtros['hasta'], fn ($q) => $q->where('fecha_cita', '<=', $filtros['hasta']))
+            ->orderByDesc('fecha_cita')
+            ->orderByDesc('hora_inicio')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('pacientes.citas', compact('paciente', 'citas', 'filtros'));
+    }
+
+    private function fechaValida(mixed $valor): ?string
+    {
+        return is_string($valor) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor) && strtotime($valor) ? $valor : null;
     }
 
     public function edit(Paciente $paciente): View

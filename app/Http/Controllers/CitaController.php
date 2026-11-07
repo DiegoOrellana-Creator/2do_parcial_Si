@@ -6,12 +6,10 @@ use App\Http\Requests\CitaRequest;
 use App\Http\Requests\ReprogramacionCitaRequest;
 use App\Models\Cita;
 use App\Models\Especialidad;
-use App\Models\HistorialEstadoCita;
 use App\Models\Medico;
 use App\Models\Paciente;
 use App\Models\User;
 use App\Services\AsistenciaCita;
-use App\Services\Auditoria;
 use App\Services\Disponibilidad;
 use App\Services\RegistroCita;
 use Carbon\CarbonImmutable;
@@ -19,7 +17,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -195,7 +192,7 @@ class CitaController extends Controller implements HasMiddleware
             ->with(isset($resultado['error']) ? 'error' : 'status', $resultado['error'] ?? $resultado['status']);
     }
 
-    public function cancelar(Request $request, Cita $cita): RedirectResponse
+    public function cancelar(Request $request, Cita $cita, RegistroCita $registro): RedirectResponse
     {
         $datos = $request->validateWithBag('cancelacion', [
             'motivo_cancelacion' => ['required', 'string', 'max:1000'],
@@ -204,36 +201,7 @@ class CitaController extends Controller implements HasMiddleware
             'motivo_cancelacion.max' => 'El motivo no debe superar los :max caracteres.',
         ]);
 
-        $resultado = DB::transaction(function () use ($cita, $datos, $request) {
-            $fila = Cita::whereKey($cita->id_cita)->lockForUpdate()->first();
-
-            if (! $fila->esCancelable()) {
-                return ['error' => 'La cita ya no se puede cancelar: solo se cancelan citas programadas o confirmadas que todavía no empezaron.'];
-            }
-
-            $ahora = now();
-            $anterior = $fila->estado;
-            $fila->update([
-                'estado' => Cita::CANCELADA,
-                'motivo_cancelacion' => $datos['motivo_cancelacion'],
-                'fecha_cancelacion' => $ahora,
-                'cancelado_por' => $request->user()->id,
-            ]);
-
-            HistorialEstadoCita::create([
-                'id_cita' => $fila->id_cita,
-                'estado_anterior' => $anterior,
-                'estado_nuevo' => Cita::CANCELADA,
-                'fecha_hora' => $ahora,
-                'motivo' => $datos['motivo_cancelacion'],
-                'registrado_por' => $request->user()->id,
-            ]);
-
-            Auditoria::registrar(Auditoria::CAMBIO_ESTADO, Auditoria::CITAS, (int) $fila->id_cita,
-                "Cita {$fila->codigo}: {$anterior} → " . Cita::CANCELADA . ". Motivo: {$datos['motivo_cancelacion']}");
-
-            return ['status' => "Cita {$fila->codigo} cancelada. La franja vuelve a estar disponible."];
-        });
+        $resultado = $registro->cancelar($cita, $datos['motivo_cancelacion'], $request->user()->id);
 
         return redirect()
             ->route('citas.show', $cita)

@@ -17,7 +17,7 @@
         @endif
 
         <x-admin.card title="1. Especialidad y fecha" :padding="false">
-            @include('disponibilidad.partials.consulta', ['accion' => route('mis-citas.create')])
+            @include('disponibilidad.partials.consulta', ['accion' => route('mis-citas.create'), 'paciente' => null])
         </x-admin.card>
 
         @if ($resultados !== null && ! $paciente->bloqueado)

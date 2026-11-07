@@ -37,19 +37,10 @@ class RegistroCita
             $paciente = Paciente::with('usuario')->whereKey($idPaciente)->lockForUpdate()->first();
             $especialidad = Especialidad::find($idEspecialidad);
 
-            $falla = fn (string $campo, string $mensaje) => throw ValidationException::withMessages([$campo => $mensaje]);
-
             $fin = $this->comprobarReglas($medico, $paciente, $especialidad, $idMedico, $fecha, $hora);
 
             if ($unaPorMedicoYDia) {
-                $duplicada = Cita::where('id_paciente', $paciente->id_paciente)
-                    ->where('id_medico', $idMedico)
-                    ->where('fecha_cita', $fecha->toDateString())
-                    ->whereIn('estado', Cita::ESTADOS_CANCELABLES)
-                    ->exists();
-                if ($duplicada) {
-                    $falla('franja', 'Ya tienes una cita pendiente con ese médico ese día.');
-                }
+                $this->comprobarDuplicada((int) $paciente->id_paciente, $idMedico, $fecha);
             }
 
             $ahora = now();
@@ -88,11 +79,13 @@ class RegistroCita
      * Mueve una cita pendiente a otra franja de la misma especialidad, con el mismo u otro médico.
      * Conserva su código y su paciente, y vuelve a «Programada»: una confirmación valía para la hora anterior.
      *
+     * @param  bool  $unaPorMedicoYDia  como al solicitar: sin otra cita pendiente con ese médico ese día.
+     *
      * @throws ValidationException si alguna regla no se cumple; no se escribe nada.
      */
-    public function reprogramar(Cita $cita, int $idMedico, CarbonImmutable $fecha, string $hora, string $motivo, int $registradoPor): Cita
+    public function reprogramar(Cita $cita, int $idMedico, CarbonImmutable $fecha, string $hora, string $motivo, int $registradoPor, bool $unaPorMedicoYDia = false): Cita
     {
-        return DB::transaction(function () use ($cita, $idMedico, $fecha, $hora, $motivo, $registradoPor) {
+        return DB::transaction(function () use ($cita, $idMedico, $fecha, $hora, $motivo, $registradoPor, $unaPorMedicoYDia) {
             // Mismo orden de bloqueo que al registrar; después, la cita (como al cancelarla).
             $medico = Medico::with('usuario')->whereKey($idMedico)->lockForUpdate()->first();
             $paciente = Paciente::with('usuario')->whereKey($cita->id_paciente)->lockForUpdate()->first();
@@ -103,6 +96,10 @@ class RegistroCita
             }
 
             $fin = $this->comprobarReglas($medico, $paciente, $fila->especialidad, $idMedico, $fecha, $hora, (int) $fila->id_cita);
+
+            if ($unaPorMedicoYDia) {
+                $this->comprobarDuplicada((int) $paciente->id_paciente, $idMedico, $fecha, (int) $fila->id_cita);
+            }
 
             $antes = $this->describirHorario($fila);
             $estadoAnterior = $fila->estado;
@@ -129,6 +126,62 @@ class RegistroCita
 
             return $fila;
         });
+    }
+
+    /**
+     * Cancela una cita que sigue vigente y todavía no empezó. La cita se conserva con su historial.
+     *
+     * @return array{status?: string, error?: string} un error no escribe nada.
+     */
+    public function cancelar(Cita $cita, string $motivo, int $canceladoPor): array
+    {
+        return DB::transaction(function () use ($cita, $motivo, $canceladoPor) {
+            $fila = Cita::whereKey($cita->id_cita)->lockForUpdate()->first();
+
+            if (! $fila->esCancelable()) {
+                return ['error' => 'La cita ya no se puede cancelar: solo se cancelan citas programadas o confirmadas que todavía no empezaron.'];
+            }
+
+            $ahora = now();
+            $anterior = $fila->estado;
+            $fila->update([
+                'estado' => Cita::CANCELADA,
+                'motivo_cancelacion' => $motivo,
+                'fecha_cancelacion' => $ahora,
+                'cancelado_por' => $canceladoPor,
+            ]);
+
+            HistorialEstadoCita::create([
+                'id_cita' => $fila->id_cita,
+                'estado_anterior' => $anterior,
+                'estado_nuevo' => Cita::CANCELADA,
+                'fecha_hora' => $ahora,
+                'motivo' => $motivo,
+                'registrado_por' => $canceladoPor,
+            ]);
+
+            Auditoria::registrar(Auditoria::CAMBIO_ESTADO, Auditoria::CITAS, (int) $fila->id_cita,
+                "Cita {$fila->codigo}: {$anterior} → " . Cita::CANCELADA . ". Motivo: {$motivo}", $canceladoPor);
+
+            return ['status' => "Cita {$fila->codigo} cancelada. La franja vuelve a estar disponible."];
+        });
+    }
+
+    /**
+     * @throws ValidationException si el paciente ya tiene otra cita pendiente con ese médico ese día.
+     */
+    private function comprobarDuplicada(int $idPaciente, int $idMedico, CarbonImmutable $fecha, ?int $exceptoCita = null): void
+    {
+        $duplicada = Cita::where('id_paciente', $idPaciente)
+            ->when($exceptoCita, fn ($q) => $q->where('id_cita', '<>', $exceptoCita))
+            ->where('id_medico', $idMedico)
+            ->where('fecha_cita', $fecha->toDateString())
+            ->whereIn('estado', Cita::ESTADOS_CANCELABLES)
+            ->exists();
+
+        if ($duplicada) {
+            throw ValidationException::withMessages(['franja' => 'Ya tienes una cita pendiente con ese médico ese día.']);
+        }
     }
 
     /**

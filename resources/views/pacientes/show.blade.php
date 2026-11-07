@@ -133,6 +133,9 @@ $valor = fn ($dato) => filled($dato) ? $dato : null;
             @if ($citas->isEmpty())
                 <p class="muted card__body">El paciente todavía no tiene citas registradas.</p>
             @else
+                <div class="card__body">
+                    <a href="{{ route('pacientes.citas', $paciente) }}" class="btn btn--secondary btn--sm">Ver historial completo ({{ $totalCitas }})</a>
+                </div>
                 <div class="table-scroll">
                     <table class="data-table responsive-table">
                         <caption class="sr-only">Historial de citas del paciente</caption>

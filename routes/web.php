@@ -60,6 +60,7 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
     Route::patch('citas/{cita}/atendida', [CitaController::class, 'atendida'])->name('citas.atendida');
     Route::patch('citas/{cita}/inasistencia', [CitaController::class, 'inasistencia'])->name('citas.inasistencia');
     Route::patch('pacientes/{paciente}/desbloquear', [PacienteController::class, 'desbloquear'])->name('pacientes.desbloquear');
+    Route::get('pacientes/{paciente}/citas', [PacienteController::class, 'citas'])->name('pacientes.citas');
     Route::get('citas/{cita}/reprogramar', [CitaController::class, 'reprogramar'])->name('citas.reprogramar');
     Route::patch('citas/{cita}/reprogramar', [CitaController::class, 'guardarReprogramacion'])->name('citas.reprogramar.guardar');
     // Solo lectura y solo para el administrador (Gate «bitacora.ver»).
@@ -79,6 +80,9 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PACIENTE])->grou
     Route::get('mis-citas/solicitar', [MisCitasController::class, 'create'])->name('mis-citas.create');
     Route::post('mis-citas', [MisCitasController::class, 'store'])->name('mis-citas.store');
     Route::get('mis-citas/{cita}', [MisCitasController::class, 'show'])->name('mis-citas.show');
+    Route::patch('mis-citas/{cita}/cancelar', [MisCitasController::class, 'cancelar'])->name('mis-citas.cancelar');
+    Route::get('mis-citas/{cita}/reprogramar', [MisCitasController::class, 'reprogramar'])->name('mis-citas.reprogramar');
+    Route::patch('mis-citas/{cita}/reprogramar', [MisCitasController::class, 'guardarReprogramacion'])->name('mis-citas.reprogramar.guardar');
 });
 
 require __DIR__.'/auth.php';

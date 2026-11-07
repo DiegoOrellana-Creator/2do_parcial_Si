@@ -16,7 +16,7 @@
         @endif
 
         <x-admin.card :padding="false">
-            @include('disponibilidad.partials.consulta', ['accion' => route('mis-citas.disponibilidad')])
+            @include('disponibilidad.partials.consulta', ['accion' => route('mis-citas.disponibilidad'), 'paciente' => null])
         </x-admin.card>
 
         @if ($resultados !== null)

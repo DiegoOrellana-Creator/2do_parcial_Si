@@ -15,6 +15,39 @@ $medico = $cita->medico->usuario;
                     <span class="page-subtitle">{{ Carbon::parse($cita->fecha_cita)->format('d/m/Y') }} · {{ substr($cita->hora_inicio, 0, 5) }}–{{ substr($cita->hora_fin, 0, 5) }}</span>
                 </div>
             </div>
+
+            @if ($cita->esCancelable())
+                <div class="page-heading__actions">
+                    @unless ($paciente->bloqueado)
+                        <a href="{{ route('mis-citas.reprogramar', $cita) }}" class="btn btn--secondary">Reprogramar</a>
+                    @endunless
+
+                    {{-- Cancelación sin JavaScript: el botón abre la ventana; se confirma con el motivo --}}
+                    <x-modal name="confirmar-cancelacion" maxWidth="md" trigger-class="btn btn--danger" :show="$errors->cancelacion->isNotEmpty()">
+                        <x-slot name="trigger">Cancelar cita</x-slot>
+
+                        <form method="POST" action="{{ route('mis-citas.cancelar', $cita) }}" class="modal__body">
+                            @csrf
+                            @method('PATCH')
+
+                            <h2 class="section-title">¿Cancelar la cita {{ $cita->codigo }}?</h2>
+                            <p class="section-text">La cita quedará como «Cancelada» y ese horario volverá a estar disponible. Se conserva en tu historial.</p>
+
+                            <div class="modal__field">
+                                <x-input-label for="motivo_cancelacion">Motivo de la cancelación <span class="required-mark" aria-hidden="true">*</span></x-input-label>
+                                <textarea id="motivo_cancelacion" name="motivo_cancelacion" rows="3" maxlength="1000" required class="form-input"
+                                          @if ($errors->cancelacion->has('motivo_cancelacion')) aria-invalid="true" @endif>{{ old('motivo_cancelacion') }}</textarea>
+                                <x-input-error :messages="$errors->cancelacion->get('motivo_cancelacion')" />
+                            </div>
+
+                            <div class="modal__actions">
+                                <a href="{{ route('mis-citas.show', $cita) }}" class="btn btn--secondary">Volver</a>
+                                <x-danger-button>Cancelar cita</x-danger-button>
+                            </div>
+                        </form>
+                    </x-modal>
+                </div>
+            @endif
         </div>
     </x-slot>
 
@@ -39,9 +72,6 @@ $medico = $cita->medico->usuario;
                         <div><dt>Motivo de cancelación</dt><dd class="pre-line">{{ $cita->motivo_cancelacion }}</dd></div>
                     @endif
                 </dl>
-                @if (in_array($cita->estado, \App\Models\Cita::ESTADOS_CANCELABLES, true))
-                    <p class="field-hint">Si no puedes asistir, comunícate con la clínica para cancelar la cita.</p>
-                @endif
             </x-admin.card>
 
             <x-admin.card title="Historial de estados" :padding="false">
