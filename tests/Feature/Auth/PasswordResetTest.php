@@ -19,6 +19,16 @@ class PasswordResetTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_if_the_mail_server_fails_the_user_sees_a_message_instead_of_an_error(): void
+    {
+        $user = User::factory()->create();
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('Connection could not be established with host smtp.gmail.com'));
+
+        $this->from('/forgot-password')->post('/forgot-password', ['email' => $user->email])
+            ->assertRedirect('/forgot-password')
+            ->assertSessionHasErrors(['email' => 'No pudimos enviar el correo en este momento. Inténtalo más tarde o comunícate con la clínica.']);
+    }
+
     public function test_reset_password_link_can_be_requested(): void
     {
         Notification::fake();
