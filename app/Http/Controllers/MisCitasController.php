@@ -83,6 +83,10 @@ class MisCitasController extends Controller
     {
         $this->propia($request, $cita);
 
+        if ($aviso = $this->fueraDePlazo($cita, 'cancelar')) {
+            return $aviso;
+        }
+
         $datos = $request->validateWithBag('cancelacion', [
             'motivo_cancelacion' => ['required', 'string', 'max:1000'],
         ], [
@@ -105,6 +109,9 @@ class MisCitasController extends Controller
             return redirect()->route('mis-citas.show', $cita)->with('error', $paciente->bloqueado
                 ? 'Tu cuenta tiene la solicitud de citas bloqueada: no puedes reprogramar citas. Contacta con la clínica.'
                 : 'La cita ya no se puede reprogramar: solo se reprograman citas programadas o confirmadas que todavía no empezaron.');
+        }
+        if ($aviso = $this->fueraDePlazo($cita, 'reprogramar')) {
+            return $aviso;
         }
 
         $cita->load(['medico.usuario', 'especialidad']);
@@ -130,6 +137,10 @@ class MisCitasController extends Controller
     {
         $this->propia($request, $cita);
 
+        if ($aviso = $this->fueraDePlazo($cita, 'reprogramar')) {
+            return $aviso;
+        }
+
         $datos = $request->validated();
         [$idMedico, $hora] = $request->franjaElegida();
 
@@ -146,6 +157,19 @@ class MisCitasController extends Controller
         return redirect()
             ->route('mis-citas.show', $cita)
             ->with('status', "Tu cita {$cita->codigo} se reprogramó y quedó en estado «" . Cita::PROGRAMADA . '».');
+    }
+
+    /**
+     * Con menos de 24 horas de anticipación el paciente ya no cambia la cita por su cuenta.
+     */
+    private function fueraDePlazo(Cita $cita, string $accion): ?RedirectResponse
+    {
+        if (! $cita->esCancelable() || $cita->pacientePuedeCambiar()) {
+            return null;
+        }
+
+        return redirect()->route('mis-citas.show', $cita)->with('error',
+            'Faltan menos de ' . Cita::HORAS_AVISO_PACIENTE . " horas para tu cita: ya no puedes {$accion}la desde aquí. Comunícate con la clínica.");
     }
 
     /**

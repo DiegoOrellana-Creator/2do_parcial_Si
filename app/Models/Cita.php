@@ -47,6 +47,9 @@ class Cita extends Model
     /** Estados que todavía se pueden cancelar. */
     public const ESTADOS_CANCELABLES = [self::PROGRAMADA, self::CONFIRMADA];
 
+    /** Anticipación mínima con la que el paciente cancela o reprograma por su cuenta. */
+    public const HORAS_AVISO_PACIENTE = 24;
+
     /** Minutos de margen sobre el plazo de pago antes de liberar la franja de una reserva. */
     private const MARGEN_RESERVA = 2;
 
@@ -194,6 +197,15 @@ class Cita extends Model
     {
         return ($this->reservaVigente() || in_array($this->estado, [self::PROGRAMADA, self::CONFIRMADA, self::ATENDIDA], true))
             && $this->precioCobrable() !== null && ! $this->estaPagada();
+    }
+
+    /**
+     * El paciente cancela o reprograma su cita por su cuenta solo con 24 horas de anticipación;
+     * después debe hacerlo la clínica (la recepción puede hasta la hora de la cita).
+     */
+    public function pacientePuedeCambiar(): bool
+    {
+        return $this->esCancelable() && $this->inicio()->greaterThanOrEqualTo(now()->addHours(self::HORAS_AVISO_PACIENTE));
     }
 
     /** Se puede cancelar si sigue vigente y todavía no empezó. */

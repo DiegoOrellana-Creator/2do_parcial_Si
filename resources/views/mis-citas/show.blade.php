@@ -18,7 +18,7 @@ $pagoSimulado = config('pagos.pasarela') !== 'stripe';
                 </div>
             </div>
 
-            @if ($cita->esCancelable())
+            @if ($cita->pacientePuedeCambiar())
                 <div class="page-heading__actions">
                     @unless ($paciente->bloqueado)
                         <a href="{{ route('mis-citas.reprogramar', $cita) }}" class="btn btn--secondary">Reprogramar</a>
@@ -52,6 +52,8 @@ $pagoSimulado = config('pagos.pasarela') !== 'stripe';
                         </form>
                     </x-modal>
                 </div>
+            @elseif ($cita->esCancelable())
+                <p class="field-hint">Faltan menos de {{ \App\Models\Cita::HORAS_AVISO_PACIENTE }} horas para tu cita: para cancelarla o reprogramarla, comunícate con la clínica.</p>
             @endif
         </div>
     </x-slot>
