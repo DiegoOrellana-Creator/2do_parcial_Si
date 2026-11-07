@@ -134,6 +134,7 @@ class RegistroCita
             ]);
 
             Auditoria::registrar(Auditoria::REPROGRAMAR, Auditoria::CITAS, (int) $fila->id_cita, "Cita {$fila->codigo}. {$cambio}", $registradoPor);
+            app(Notificador::class)->citaReprogramada($fila, $antes);
 
             return $fila;
         });
@@ -173,6 +174,8 @@ class RegistroCita
 
             Auditoria::registrar(Auditoria::CAMBIO_ESTADO, Auditoria::CITAS, (int) $fila->id_cita,
                 "Cita {$fila->codigo}: {$anterior} → " . Cita::CANCELADA . ". Motivo: {$motivo}", $canceladoPor);
+
+            app(Notificador::class)->citaCancelada($fila, $motivo, $fila->estaPagada());
 
             return ['status' => "Cita {$fila->codigo} cancelada. La franja vuelve a estar disponible."];
         });

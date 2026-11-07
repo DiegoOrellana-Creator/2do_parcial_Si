@@ -11,6 +11,7 @@ use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\MedicoController;
 use App\Http\Controllers\MisCitasController;
 use App\Http\Controllers\MisConsultasController;
+use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\PacienteController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\ProfileController;
@@ -41,6 +42,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    // Avisos del propio usuario (campanita), para todos los perfiles.
+    Route::get('notificaciones', [NotificacionController::class, 'index'])->name('notificaciones.index');
+    Route::patch('notificaciones/leidas', [NotificacionController::class, 'marcarLeidas'])->name('notificaciones.leidas');
 });
 
 // Módulos de gestión: solo para el personal de la clínica y, además, cada acción exige

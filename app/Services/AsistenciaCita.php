@@ -65,6 +65,8 @@ class AsistenciaCita
                         "Paciente «{$this->nombre($paciente)}» bloqueado por {$total} inasistencias.", $registradoPor);
                 }
 
+                app(Notificador::class)->inasistencia($fila, $total, $bloquear);
+
                 return "Cita {$fila->codigo} registrada como «" . Cita::NO_ASISTIO . "». El paciente acumula {$total} "
                     . ($total === 1 ? 'inasistencia' : 'inasistencias') . ($bloquear ? ' y quedó bloqueado.' : '.');
             });
@@ -95,6 +97,10 @@ class AsistenciaCita
 
             Auditoria::registrar(Auditoria::DESBLOQUEO, Auditoria::PACIENTES, (int) $fila->id_paciente,
                 "Paciente «{$this->nombre($fila)}» desbloqueado. Inasistencias reiniciadas (tenía {$inasistencias}).", $registradoPor);
+
+            if ($fila->usuario) {
+                app(Notificador::class)->desbloqueo($fila->usuario);
+            }
 
             return ['status' => 'Paciente desbloqueado. Su contador de inasistencias volvió a 0.'];
         });

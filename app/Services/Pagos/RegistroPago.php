@@ -7,6 +7,7 @@ use App\Models\HistorialEstadoCita;
 use App\Models\Paciente;
 use App\Models\Pago;
 use App\Services\Auditoria;
+use App\Services\Notificador;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -188,7 +189,7 @@ class RegistroPago
             }
             Auditoria::registrar(Auditoria::PAGO, Auditoria::PAGOS, (int) $fila->id_pago, $detalle, (int) $cita->id_paciente);
 
-            $this->confirmarCita($cita, (int) $cita->id_paciente, 'Pago en línea recibido.');
+            $this->confirmarCita($cita, (int) $cita->id_paciente, 'Pago en línea recibido.', $fila);
 
 
             return true;
@@ -244,7 +245,7 @@ class RegistroPago
                 . (filled($comprobante) ? ", comprobante {$comprobante}" : '') . ').', $registradoPor);
 
             $generada = $fila->esReserva();
-            $this->confirmarCita($fila, $registradoPor, "Pago en ventanilla recibido ({$metodo}).");
+            $this->confirmarCita($fila, $registradoPor, "Pago en ventanilla recibido ({$metodo}).", $pago);
 
             return ['status' => $generada
                 ? "Pago de {$this->bs((float) $pago->monto)} registrado: se generó la cita {$fila->codigo}."
@@ -276,13 +277,14 @@ class RegistroPago
      * El pago genera la cita de una reserva pendiente, o confirma una cita que seguía «Programada».
      * Una reserva ya anulada no se revive: su franja pudo ocuparse (el pago queda para devolver).
      */
-    private function confirmarCita(Cita $cita, int $registradoPor, string $motivo): void
+    private function confirmarCita(Cita $cita, int $registradoPor, string $motivo, Pago $pago): void
     {
         if ($cita->esReserva()) {
             $cita->update(['estado' => Cita::CONFIRMADA]);
             $this->historial($cita, Cita::PENDIENTE_PAGO, $registradoPor, "{$motivo} Cita generada.");
             Auditoria::registrar(Auditoria::CREAR, Auditoria::CITAS, (int) $cita->id_cita,
                 "Cita {$cita->codigo} generada tras el pago: " . Cita::PENDIENTE_PAGO . ' → ' . Cita::CONFIRMADA . '.', $registradoPor);
+            app(Notificador::class)->citaGenerada($cita, $pago);
 
             return;
         }

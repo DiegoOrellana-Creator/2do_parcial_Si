@@ -32,11 +32,15 @@ $iniciales = Str::upper(Str::substr($user->nombre ?? '', 0, 1) . Str::substr($us
     @endif
 
     <div class="topbar__actions">
-        <!-- Notificaciones: solo visual hasta que exista el módulo -->
-        <button type="button" disabled title="Notificaciones (próximamente)" class="icon-button"
-                aria-label="Notificaciones, disponible próximamente">
+        <!-- Notificaciones: enlace a la lista, con el número de avisos sin leer -->
+        @php($sinLeer = \App\Models\Notificacion::query()->de((int) $user->id)->where('leido', false)->count())
+        <a href="{{ route('notificaciones.index') }}" class="icon-button icon-button--aviso" title="Notificaciones"
+           aria-label="Notificaciones{{ $sinLeer ? ', ' . $sinLeer . ' sin leer' : '' }}">
             <x-admin.icon name="bell" class="icon--lg" />
-        </button>
+            @if ($sinLeer)
+                <span class="icon-button__contador" aria-hidden="true">{{ $sinLeer > 9 ? '9+' : $sinLeer }}</span>
+            @endif
+        </a>
 
         <div class="topbar__divider" aria-hidden="true"></div>
 
