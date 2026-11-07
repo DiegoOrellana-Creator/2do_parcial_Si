@@ -9,6 +9,7 @@ use App\Http\Controllers\EspecialidadController;
 use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\MedicoController;
 use App\Http\Controllers\MisCitasController;
+use App\Http\Controllers\MisConsultasController;
 use App\Http\Controllers\PacienteController;
 use App\Http\Controllers\ProfileController;
 use App\Models\User;
@@ -58,6 +59,12 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
     Route::patch('citas/{cita}/reprogramar', [CitaController::class, 'guardarReprogramacion'])->name('citas.reprogramar.guardar');
     // Solo lectura y solo para el administrador (Gate «bitacora.ver»).
     Route::get('bitacora', [BitacoraController::class, 'index'])->name('bitacora.index');
+});
+
+// «Mis citas» del médico: solo consulta y solo sobre sus propias citas.
+Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_MEDICO])->group(function () {
+    Route::get('mis-consultas', [MisConsultasController::class, 'index'])->name('consultas.index');
+    Route::get('mis-consultas/{cita}', [MisConsultasController::class, 'show'])->name('consultas.show');
 });
 
 // Funciones del paciente: solo cuentas con perfil paciente, y siempre sobre su propia ficha.

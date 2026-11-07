@@ -61,7 +61,7 @@ $menus = [
         'Mi consulta' => [
             ['label' => 'Inicio', 'route' => 'dashboard', 'icon' => 'home'],
             ['label' => 'Mi agenda', 'route' => 'agenda.index', 'icon' => 'calendar'],
-            ['label' => 'Mis citas', 'route' => null, 'icon' => 'clipboard'],
+            ['label' => 'Mis citas', 'route' => 'consultas.index', 'icon' => 'clipboard'],
         ],
         'Mi cuenta' => [
             ['label' => 'Mi perfil', 'route' => 'profile.edit', 'icon' => 'user-circle'],

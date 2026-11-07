@@ -7,11 +7,6 @@ $perfil = $usuario->perfil();
 $medico = $perfil === User::PERFIL_MEDICO ? \App\Models\Medico::with('especialidades')->find($usuario->id) : null;
 $paciente = $perfil === User::PERFIL_PACIENTE ? \App\Models\Paciente::find($usuario->id) : null;
 
-$pendientes = match ($perfil) {
-    User::PERFIL_MEDICO => ['Mis citas'],
-    default => [],
-};
-
 // Accesos del paciente y su próxima cita pendiente.
 $proximaCita = $paciente
     ? \App\Models\Cita::where('id_paciente', $paciente->id_paciente)
@@ -73,13 +68,11 @@ $proximaCita = $paciente
                         <a href="{{ route('mis-citas.disponibilidad') }}" class="quick-action"><x-admin.icon name="magnifying-glass" class="icon--lg" /> Disponibilidad médica</a>
                         <a href="{{ route('mis-citas.index') }}" class="quick-action"><x-admin.icon name="clipboard" class="icon--lg" /> Mis citas</a>
                     </div>
-                @elseif ($pendientes)
-                    <p class="muted">Estas funciones de tu menú todavía no están habilitadas:</p>
-                    <ul class="delete-summary">
-                        @foreach ($pendientes as $funcion)
-                            <li>{{ $funcion }}</li>
-                        @endforeach
-                    </ul>
+                @elseif ($medico)
+                    <div class="quick-actions">
+                        <a href="{{ route('agenda.index') }}" class="quick-action"><x-admin.icon name="calendar" class="icon--lg" /> Mi agenda</a>
+                        <a href="{{ route('consultas.index') }}" class="quick-action"><x-admin.icon name="clipboard" class="icon--lg" /> Mis citas</a>
+                    </div>
                 @else
                     <p class="muted">Tu cuenta todavía no tiene un perfil asignado. Contacta con la clínica si necesitas acceso.</p>
                 @endif

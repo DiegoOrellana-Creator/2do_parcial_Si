@@ -208,8 +208,8 @@ class PerfilesMenuTest extends TestCase
         [$etiquetas, $enlaces, $html] = $this->menu($this->medico());
 
         $this->assertSame(self::MENU_MEDICO, $etiquetas);
-        $this->assertSame([route('dashboard'), route('agenda.index'), route('profile.edit')], $enlaces);
-        $this->assertSame(1, substr_count($html, 'Pronto'), 'Solo «Mis citas» sigue pendiente');
+        $this->assertSame([route('dashboard'), route('agenda.index'), route('consultas.index'), route('profile.edit')], $enlaces);
+        $this->assertStringNotContainsString('Pronto', $html);
     }
 
     public function test_quien_es_paciente_y_medico_ve_el_menu_de_medico(): void
