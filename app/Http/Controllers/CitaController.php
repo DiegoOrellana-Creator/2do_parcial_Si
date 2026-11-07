@@ -34,6 +34,7 @@ class CitaController extends Controller implements HasMiddleware
             new Middleware('can:citas.cancelar', only: ['cancelar']),
             new Middleware('can:citas.reprogramar', only: ['reprogramar', 'guardarReprogramacion']),
             new Middleware('can:citas.asistencia', only: ['confirmar', 'atendida', 'inasistencia']),
+            new Middleware('can:citas.corregir_inasistencia', only: ['corregirInasistencia']),
         ];
     }
 
@@ -181,6 +182,19 @@ class CitaController extends Controller implements HasMiddleware
     public function inasistencia(Request $request, Cita $cita, AsistenciaCita $asistencia): RedirectResponse
     {
         return $this->volverACita($cita, $asistencia->registrarInasistencia($cita, $request->user()->id));
+    }
+
+    /** El administrador corrige una inasistencia registrada por error. */
+    public function corregirInasistencia(Request $request, Cita $cita, AsistenciaCita $asistencia): RedirectResponse
+    {
+        $datos = $request->validateWithBag('correccion', [
+            'motivo_correccion' => ['required', 'string', 'max:500'],
+        ], [
+            'motivo_correccion.required' => 'Indica por qué se corrige la inasistencia.',
+            'motivo_correccion.max' => 'El motivo no debe superar los :max caracteres.',
+        ]);
+
+        return $this->volverACita($cita, $asistencia->corregirInasistencia($cita, $datos['motivo_correccion'], $request->user()->id));
     }
 
     /**

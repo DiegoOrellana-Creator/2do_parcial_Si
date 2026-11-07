@@ -70,6 +70,18 @@ class Notificador
             [], null);
     }
 
+    public function inasistenciaCorregida(Cita $cita, int $total, bool $desbloqueado): void
+    {
+        $this->paraCita($cita, Notificacion::INASISTENCIA_CORREGIDA, 'Corregimos tu asistencia',
+            "Corregimos tu asistencia a la cita {$cita->codigo}: quedó como atendida.",
+            array_filter([
+                "Revisamos la cita {$cita->codigo} y quedó registrada como atendida. Ahora llevas {$total} "
+                    . ($total === 1 ? 'inasistencia' : 'inasistencias') . '.',
+                $desbloqueado ? 'Tu cuenta quedó desbloqueada: ya puedes volver a solicitar citas.' : null,
+            ]),
+            [], null);
+    }
+
     public function desbloqueo(User $paciente): void
     {
         $this->avisar($paciente, Notificacion::DESBLOQUEO, 'Tu cuenta fue desbloqueada',

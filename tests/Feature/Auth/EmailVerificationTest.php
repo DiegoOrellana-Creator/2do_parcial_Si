@@ -3,56 +3,30 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
+/**
+ * La clínica no usa la verificación de correo de Breeze: la tabla `users` no tiene
+ * `email_verified_at` y User no implementa MustVerifyEmail. Las cuentas entran directamente.
+ */
 class EmailVerificationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_email_verification_screen_can_be_rendered(): void
+    public function test_accounts_do_not_need_email_verification(): void
     {
-        $user = User::factory()->unverified()->create();
+        $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/verify-email');
-
-        $response->assertStatus(200);
+        $this->assertNotInstanceOf(\Illuminate\Contracts\Auth\MustVerifyEmail::class, $user);
+        $this->actingAs($user)->get(route('dashboard'))->assertOk();
     }
 
-    public function test_email_can_be_verified(): void
+    public function test_login_goes_straight_to_the_dashboard(): void
     {
-        $user = User::factory()->unverified()->create();
+        $user = User::factory()->create();
 
-        Event::fake();
-
-        $verificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1($user->email)]
-        );
-
-        $response = $this->actingAs($user)->get($verificationUrl);
-
-        Event::assertDispatched(Verified::class);
-        $this->assertTrue($user->fresh()->hasVerifiedEmail());
-        $response->assertRedirect(route('dashboard', absolute: false).'?verified=1');
-    }
-
-    public function test_email_is_not_verified_with_invalid_hash(): void
-    {
-        $user = User::factory()->unverified()->create();
-
-        $verificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1('wrong-email')]
-        );
-
-        $this->actingAs($user)->get($verificationUrl);
-
-        $this->assertFalse($user->fresh()->hasVerifiedEmail());
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('dashboard'));
+        $this->get(route('dashboard'))->assertOk();
     }
 }

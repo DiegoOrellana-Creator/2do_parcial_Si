@@ -6,93 +6,56 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * Mi perfil (adaptado de Breeze a las reglas de la clínica): solo el administrador cambia sus
+ * datos; nadie puede eliminar su cuenta. El detalle está en MiPerfilTest.
+ */
 class ProfileTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Como en clinica_db: id 1 / «admin» es la cuenta administrativa principal. */
+    private function administrador(): User
+    {
+        return User::factory()->create(['username' => 'admin']);
+    }
+
     public function test_profile_page_is_displayed(): void
     {
+        $this->administrador();
         $user = User::factory()->create();
 
-        $response = $this
-            ->actingAs($user)
-            ->get('/profile');
-
-        $response->assertOk();
+        $this->actingAs($user)->get('/profile')->assertOk();
     }
 
     public function test_profile_information_can_be_updated(): void
     {
-        $user = User::factory()->create();
+        $admin = $this->administrador();
 
-        $response = $this
-            ->actingAs($user)
-            ->patch('/profile', [
-                'name' => 'Test User',
-                'email' => 'test@example.com',
-            ]);
+        $this->actingAs($admin)->patch('/profile', [
+            'nombre' => 'Ana', 'apellido' => 'Rojas', 'email' => 'ana.rojas@ejemplo.test',
+        ])->assertSessionHasNoErrors()->assertRedirect('/profile');
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
-
-        $user->refresh();
-
-        $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        $admin->refresh();
+        $this->assertSame(['Ana', 'Rojas', 'ana.rojas@ejemplo.test'], [$admin->nombre, $admin->apellido, $admin->email]);
     }
 
-    public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
+    public function test_other_profiles_can_not_change_their_information(): void
     {
-        $user = User::factory()->create();
+        $this->administrador();
+        $user = User::factory()->create(['nombre' => 'Original']);
 
-        $response = $this
-            ->actingAs($user)
-            ->patch('/profile', [
-                'name' => 'Test User',
-                'email' => $user->email,
-            ]);
+        $this->actingAs($user)->patch('/profile', ['nombre' => 'Otro', 'apellido' => 'X', 'email' => $user->email])->assertForbidden();
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
-
-        $this->assertNotNull($user->refresh()->email_verified_at);
+        $this->assertSame('Original', $user->fresh()->nombre);
     }
 
-    public function test_user_can_delete_their_account(): void
+    public function test_accounts_can_not_be_deleted(): void
     {
+        $this->administrador();
         $user = User::factory()->create();
 
-        $response = $this
-            ->actingAs($user)
-            ->delete('/profile', [
-                'password' => 'password',
-            ]);
-
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
-
-        $this->assertGuest();
-        $this->assertNull($user->fresh());
-    }
-
-    public function test_correct_password_must_be_provided_to_delete_account(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
-            ->from('/profile')
-            ->delete('/profile', [
-                'password' => 'wrong-password',
-            ]);
-
-        $response
-            ->assertSessionHasErrorsIn('userDeletion', 'password')
-            ->assertRedirect('/profile');
+        $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertStatus(405);
 
         $this->assertNotNull($user->fresh());
     }

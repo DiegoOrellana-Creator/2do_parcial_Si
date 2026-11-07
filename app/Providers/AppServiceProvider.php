@@ -41,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
         // Bloquear la agenda de un médico: quien gestiona las citas.
         Gate::define('agenda.bloquear', fn (User $user) => $user->tienePermiso('citas.cancelar'));
 
+        // Corregir una inasistencia registrada por error: exclusivo del administrador.
+        Gate::define('citas.corregir_inasistencia', fn (User $user) => $user->esAdministrador());
+
         // Desbloquear a un paciente: exclusivo del administrador.
         Gate::define('pacientes.desbloquear', fn (User $user) => $user->esAdministrador());
 

@@ -18,6 +18,43 @@ $pagado = $cita->pagos->firstWhere('estado_pago', \App\Models\Pago::PAGADO);
                 </div>
             </div>
 
+            @if ($cita->estado === \App\Models\Cita::NO_ASISTIO)
+                @can('citas.corregir_inasistencia')
+                    <div class="page-heading__actions">
+                        {{-- Sin JavaScript: el botón abre la ventana; la corrección se registra al confirmar --}}
+                        <x-modal name="corregir-inasistencia" maxWidth="md" trigger-class="btn btn--secondary" :show="$errors->correccion->isNotEmpty()">
+                            <x-slot name="trigger">Corregir inasistencia</x-slot>
+
+                            <form method="POST" action="{{ route('citas.corregir_inasistencia', $cita) }}" class="modal__body">
+                                @csrf
+                                @method('PATCH')
+
+                                <h2 class="section-title">¿Corregir la inasistencia?</h2>
+                                <p class="section-text">
+                                    La cita quedará como «Atendida» y se descontará una inasistencia a {{ $paciente->nombre }} {{ $paciente->apellido }}
+                                    (tiene {{ $cita->paciente->inasistencia }}).
+                                    @if ($cita->paciente->bloqueado)
+                                        Si queda por debajo de {{ \App\Services\AsistenciaCita::INASISTENCIAS_PARA_BLOQUEO }}, también se desbloquea.
+                                    @endif
+                                </p>
+
+                                <div class="modal__field">
+                                    <x-input-label for="motivo_correccion">Motivo de la corrección <span class="required-mark" aria-hidden="true">*</span></x-input-label>
+                                    <textarea id="motivo_correccion" name="motivo_correccion" rows="3" maxlength="500" required class="form-input"
+                                              @if ($errors->correccion->has('motivo_correccion')) aria-invalid="true" @endif>{{ old('motivo_correccion') }}</textarea>
+                                    <x-input-error :messages="$errors->correccion->get('motivo_correccion')" />
+                                </div>
+
+                                <div class="modal__actions">
+                                    <a href="{{ route('citas.show', $cita) }}" class="btn btn--secondary">Volver</a>
+                                    <x-primary-button>Corregir inasistencia</x-primary-button>
+                                </div>
+                            </form>
+                        </x-modal>
+                    </div>
+                @endcan
+            @endif
+
             @if ($cita->esCancelable() || $cita->puedeRegistrarAsistencia())
                 <div class="page-heading__actions">
                     @can('citas.asistencia')

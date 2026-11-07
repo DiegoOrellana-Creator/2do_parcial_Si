@@ -72,6 +72,7 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
     Route::patch('citas/{cita}/confirmar', [CitaController::class, 'confirmar'])->name('citas.confirmar');
     Route::patch('citas/{cita}/atendida', [CitaController::class, 'atendida'])->name('citas.atendida');
     Route::patch('citas/{cita}/inasistencia', [CitaController::class, 'inasistencia'])->name('citas.inasistencia');
+    Route::patch('citas/{cita}/corregir-inasistencia', [CitaController::class, 'corregirInasistencia'])->name('citas.corregir_inasistencia');
     Route::get('citas/{cita}/comprobante', [PagoController::class, 'comprobanteVentanilla'])->name('citas.comprobante')->middleware('can:citas.ver');
     Route::middleware('can:pagos.registrar')->group(function () {
         // Cobro de una reserva (la cita se genera al pagarla) o de una cita ya registrada.

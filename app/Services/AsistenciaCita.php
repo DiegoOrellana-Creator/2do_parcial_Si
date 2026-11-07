@@ -106,6 +106,41 @@ class AsistenciaCita
         });
     }
 
+    /**
+     * Corrige una inasistencia registrada por error: la cita pasa a «Atendida» y se descuenta del
+     * contador del paciente. Si el paciente estaba bloqueado y con la corrección queda por debajo del
+     * límite, se desbloquea (el bloqueo se debía a ese error). Solo el administrador (Gate
+     * «citas.corregir_inasistencia»).
+     *
+     * @return array{status?: string, error?: string}
+     */
+    public function corregirInasistencia(Cita $cita, string $motivo, int $registradoPor): array
+    {
+        return $this->cambiarEstado($cita, $registradoPor, Cita::ATENDIDA, "Corrección de inasistencia: {$motivo}",
+            fn (Cita $fila) => $fila->estado === Cita::NO_ASISTIO,
+            'Solo se corrige una cita registrada como «' . Cita::NO_ASISTIO . '».',
+            function (Cita $fila, Paciente $paciente) use ($registradoPor) {
+                $total = max(0, $paciente->inasistencia - 1);
+                $desbloquear = $paciente->bloqueado && $total < self::INASISTENCIAS_PARA_BLOQUEO;
+
+                $paciente->update(['inasistencia' => $total, 'bloqueado' => $paciente->bloqueado && ! $desbloquear]);
+
+                if ($desbloquear) {
+                    DB::table('bloqueo_paciente')
+                        ->where('id_paciente', $paciente->id_paciente)
+                        ->whereNull('fecha_desbloqueo')
+                        ->update(['fecha_desbloqueo' => now()]);
+                    Auditoria::registrar(Auditoria::DESBLOQUEO, Auditoria::PACIENTES, (int) $paciente->id_paciente,
+                        "Paciente «{$this->nombre($paciente)}» desbloqueado al corregir la inasistencia de la cita {$fila->codigo}.", $registradoPor);
+                }
+
+                app(Notificador::class)->inasistenciaCorregida($fila, $total, $desbloquear);
+
+                return "Inasistencia corregida: la cita {$fila->codigo} quedó como «" . Cita::ATENDIDA . "». El paciente tiene {$total} "
+                    . ($total === 1 ? 'inasistencia' : 'inasistencias') . ($desbloquear ? ' y quedó desbloqueado.' : '.');
+            });
+    }
+
     private const ASISTENCIA_NO_DISPONIBLE = 'No se puede registrar la asistencia: la cita debe estar programada o confirmada y haber llegado su hora.';
 
     /**

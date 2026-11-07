@@ -31,6 +31,8 @@ class Notificacion extends Model
 
     public const INASISTENCIA = 'Inasistencia';
 
+    public const INASISTENCIA_CORREGIDA = 'Asistencia corregida';
+
     public const BLOQUEO = 'Bloqueo';
 
     public const DESBLOQUEO = 'Desbloqueo';
