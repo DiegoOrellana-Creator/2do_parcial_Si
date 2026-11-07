@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\BitacoraController;
+use App\Http\Controllers\BloqueoAgendaController;
 use App\Http\Controllers\CitaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisponibilidadController;
@@ -50,6 +51,10 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
     Route::resource('citas', CitaController::class)
         ->only(['index', 'create', 'store', 'show'])
         ->parameters(['citas' => 'cita']);
+    Route::get('agenda/bloqueos', [BloqueoAgendaController::class, 'index'])->name('agenda.bloqueos.index');
+    Route::get('agenda/bloqueos/registrar', [BloqueoAgendaController::class, 'create'])->name('agenda.bloqueos.create');
+    Route::post('agenda/bloqueos', [BloqueoAgendaController::class, 'store'])->name('agenda.bloqueos.store');
+    Route::delete('agenda/bloqueos/{bloqueo}', [BloqueoAgendaController::class, 'destroy'])->name('agenda.bloqueos.destroy');
     Route::patch('citas/{cita}/cancelar', [CitaController::class, 'cancelar'])->name('citas.cancelar');
     Route::patch('citas/{cita}/confirmar', [CitaController::class, 'confirmar'])->name('citas.confirmar');
     Route::patch('citas/{cita}/atendida', [CitaController::class, 'atendida'])->name('citas.atendida');

@@ -21,6 +21,10 @@ $etiquetas = [
                 </p>
             </div>
 
+            @can('agenda.bloquear')
+                <a href="{{ route('agenda.bloqueos.index', $medico ? ['medico' => $medico->id_medico] : []) }}" class="btn btn--secondary btn--sm">Bloqueos de agenda</a>
+            @endcan
+
             @if ($medico)
                 <nav class="page-heading__actions" aria-label="Cambiar de día">
                     <a href="{{ route('agenda.index', $parametros($fecha->subDay())) }}" class="btn btn--secondary btn--sm">← Día anterior</a>

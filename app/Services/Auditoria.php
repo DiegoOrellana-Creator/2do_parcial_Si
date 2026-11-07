@@ -33,6 +33,8 @@ class Auditoria
 
     public const CITAS = 'Citas';
 
+    public const AGENDA = 'Agenda';
+
     // Acciones
     public const INICIO_SESION = 'Inicio de sesión';
 
