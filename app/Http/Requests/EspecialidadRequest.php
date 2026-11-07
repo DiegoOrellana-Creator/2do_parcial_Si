@@ -48,7 +48,7 @@ class EspecialidadRequest extends FormRequest
             'descripcion' => ['nullable', 'string', 'max:1000'],
             'estado' => ['required', Rule::in(Especialidad::ESTADOS)],
             // Opcional: si el formulario no lo envía, el precio guardado no cambia.
-            'precio' => ['nullable', 'numeric', 'gt:0', 'lte:99999999.99', 'decimal:0,2'],
+            'precio' => ['nullable', 'numeric', 'gt:0', 'lte:500', 'decimal:0,2'],
         ];
     }
 
@@ -64,7 +64,7 @@ class EspecialidadRequest extends FormRequest
             'in' => 'El valor seleccionado en :attribute no es válido.',
             'precio.numeric' => 'El precio debe ser un número.',
             'precio.gt' => 'El precio debe ser mayor que 0.',
-            'precio.lte' => 'El precio es demasiado alto.',
+            'precio.lte' => 'El precio no debe superar los Bs 500.',
             'precio.decimal' => 'El precio puede tener como máximo 2 decimales.',
         ];
     }

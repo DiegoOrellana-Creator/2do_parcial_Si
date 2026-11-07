@@ -16,6 +16,9 @@ class Pago extends Model
 
     public const PAGADO = 'Pagado';
 
+    /** Intento en línea que no se completó (cancelado o expirado). Se conserva como registro. */
+    public const FALLIDO = 'Fallido';
+
     protected $table = 'pago';
 
     protected $primaryKey = 'id_pago';
@@ -41,6 +44,7 @@ class Pago extends Model
 
     public function cita(): BelongsTo
     {
-        return $this->belongsTo(Cita::class, 'id_cita', 'id_cita');
+        // También la reserva pendiente de pago (o anulada) a la que pertenece el intento.
+        return $this->belongsTo(Cita::class, 'id_cita', 'id_cita')->withoutGlobalScope('generadas');
     }
 }

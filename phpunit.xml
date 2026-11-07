@@ -32,5 +32,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Las pruebas nunca se conectan a Stripe: pasarela simulada y sin claves. -->
+        <env name="PAGOS_PASARELA" value="simulada"/>
+        <env name="STRIPE_SECRET" value=""/>
+        <env name="STRIPE_WEBHOOK_SECRET" value=""/>
     </php>
 </phpunit>

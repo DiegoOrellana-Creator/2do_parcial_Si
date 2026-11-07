@@ -64,16 +64,16 @@ class MisCitasController extends Controller
             unaPorMedicoYDia: true,
         );
 
+        // La cita se genera al pagarla: hasta entonces el horario queda reservado.
         return redirect()
-            ->route('mis-citas.show', $cita)
-            ->with('status', "Tu cita {$cita->codigo} quedó registrada en estado «{$cita->estado}».");
+            ->route('mis-citas.reserva', $cita);
     }
 
     public function show(Request $request, Cita $cita): View
     {
         $paciente = $this->propia($request, $cita);
 
-        $cita->load(['medico.usuario', 'especialidad', 'historial']);
+        $cita->load(['medico.usuario', 'especialidad', 'historial', 'pagos']);
 
         return view('mis-citas.show', compact('cita', 'paciente'));
     }

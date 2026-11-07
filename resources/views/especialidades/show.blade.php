@@ -62,7 +62,7 @@
                 <dl class="detail-list">
                     <div><dt>Nombre</dt><dd>{{ $especialidad->nombre }}</dd></div>
                     <div><dt>Estado</dt><dd>{{ $especialidad->estado === \App\Models\Especialidad::ACTIVA ? 'Activa' : 'Inactiva' }}</dd></div>
-                    <div><dt>Precio de la consulta</dt><dd>{{ $especialidad->precio !== null ? 'Bs ' . number_format((float) $especialidad->precio, 2) : 'Sin precio' }}</dd></div>
+                    <div><dt>Precio de la consulta</dt><dd>{{ $especialidad->precio !== null ? 'Bs ' . number_format((float) $especialidad->precio, 2, ',', '.') : 'Sin precio' }}</dd></div>
                     <div><dt>Descripción</dt><dd class="pre-line">{{ filled($especialidad->descripcion) ? $especialidad->descripcion : 'Sin descripción' }}</dd></div>
                     <div><dt>Médicos asignados</dt><dd>{{ $medicos->count() }}</dd></div>
                     <div><dt>Citas registradas</dt><dd>{{ $totalCitas }}</dd></div>

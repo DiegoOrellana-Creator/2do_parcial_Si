@@ -15,7 +15,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Pasarela de pago según PAGOS_PASARELA (config/pagos.php): «stripe» o, por defecto, «simulada».
+        $this->app->bind(\App\Services\Pagos\PasarelaPago::class, fn () => config('pagos.pasarela') === 'stripe'
+            ? new \App\Services\Pagos\PasarelaStripe
+            : new \App\Services\Pagos\PasarelaSimulada);
     }
 
     /**
@@ -40,6 +43,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Desbloquear a un paciente: exclusivo del administrador.
         Gate::define('pacientes.desbloquear', fn (User $user) => $user->esAdministrador());
+
+        // Cobro de citas en ventanilla: quien registra citas.
+        Gate::define('pagos.registrar', fn (User $user) => $user->tienePermiso('citas.crear'));
 
         // Reportes: exclusivo del administrador.
         Gate::define('reportes.ver', fn (User $user) => $user->esAdministrador());

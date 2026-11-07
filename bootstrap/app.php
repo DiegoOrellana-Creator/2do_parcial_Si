@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // formularios) se generen con https y que la IP registrada sea la del usuario.
         $middleware->trustProxies(at: '*');
 
+        // Los avisos de Stripe no llevan token CSRF: se validan con su firma (PagoController).
+        $middleware->validateCsrfTokens(except: ['pagos/stripe/webhook']);
+
         $middleware->web(append: [
             \App\Http\Middleware\VerificarCuentaActiva::class,
         ]);

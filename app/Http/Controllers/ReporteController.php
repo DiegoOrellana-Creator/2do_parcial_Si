@@ -140,7 +140,7 @@ class ReporteController extends Controller implements HasMiddleware
      */
     private function citas(array $filtros): Builder
     {
-        return DB::table('citas')
+        return Cita::sinReservas(DB::table('citas'))
             ->join('especialidad', 'especialidad.id_especialidad', '=', 'citas.id_especialidad')
             ->join('users as medicos', 'medicos.id', '=', 'citas.id_medico')
             ->whereBetween('citas.fecha_cita', [$filtros['desde'], $filtros['hasta']])

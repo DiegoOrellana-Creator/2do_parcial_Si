@@ -2133,3 +2133,42 @@ fieldset[aria-invalid="true"] .checkbox-option {
 .data-table--compacta td {
     padding: 0.625rem 0.5rem;
 }
+
+/* Referencias largas de la pasarela (p. ej. cs_test_…) */
+.data-table .cell-ref {
+    max-width: 14rem;
+    white-space: normal;
+    word-break: break-all;
+}
+
+/* Pago con QR */
+.qr-pago {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.qr-pago__imagen {
+    width: 15rem;
+    height: 15rem;
+    max-width: 100%;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.5rem;
+    background: #fff;
+}
+
+.qr-pago__texto {
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+.qr-pago__pasos {
+    margin: 0 0 0.75rem 1.25rem;
+    list-style: decimal;
+    color: var(--gray-700);
+}
+
+.qr-pago__pasos li + li {
+    margin-top: 0.375rem;
+}

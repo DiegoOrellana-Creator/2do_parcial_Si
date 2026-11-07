@@ -58,7 +58,7 @@ class DashboardController extends Controller
             ])
             ->values();
 
-        $porEspecialidad = DB::table('citas')
+        $porEspecialidad = Cita::sinReservas(DB::table('citas'))
             ->join('especialidad', 'especialidad.id_especialidad', '=', 'citas.id_especialidad')
             ->whereBetween('citas.fecha_cita', [$hoy->startOfMonth()->toDateString(), $hoy->endOfMonth()->toDateString()])
             ->where('citas.estado', '<>', Cita::CANCELADA)

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Concerns;
 
+use App\Models\Cita;
 use App\Models\Especialidad;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -47,7 +48,8 @@ trait EscenarioClinica
 
     protected function especialidadActiva(string $nombre = 'Cardiología', string $estado = 'Activo'): Especialidad
     {
-        return Especialidad::create(['nombre' => $nombre, 'estado' => $estado]);
+        // Como en clinica_db: toda especialidad tiene precio (sin él no se registran citas).
+        return Especialidad::create(['nombre' => $nombre, 'estado' => $estado, 'precio' => 150]);
     }
 
     /**
@@ -89,6 +91,32 @@ trait EscenarioClinica
             'id_especialidad' => $especialidad->id_especialidad, 'fecha_cita' => $fecha, 'hora_inicio' => $inicio . ':00', 'hora_fin' => $fin . ':00',
             'estado' => $estado, 'fecha_creacion' => now(),
         ], 'id_cita');
+    }
+
+    /** Última reserva pendiente de pago (la cita todavía no existe). */
+    protected function ultimaReserva(): Cita
+    {
+        return Cita::conReservas()->where('estado', Cita::PENDIENTE_PAGO)->latest('id_cita')->firstOrFail();
+    }
+
+    /** El personal cobra en ventanilla la última reserva y así se genera la cita. */
+    protected function cobrarReserva(User $cajero, string $metodo = 'Efectivo'): Cita
+    {
+        $reserva = $this->ultimaReserva();
+        $this->actingAs($cajero)->post(route('citas.pago', $reserva), ['metodo' => $metodo])->assertSessionHasNoErrors();
+
+        return Cita::findOrFail($reserva->id_cita);
+    }
+
+    /** El paciente paga en línea (pasarela simulada) su última reserva y así se genera su cita. */
+    protected function pagarReserva(User $paciente): Cita
+    {
+        $reserva = $this->ultimaReserva();
+        $pasarela = $this->actingAs($paciente)->post(route('mis-citas.pagar', $reserva))->headers->get('Location');
+        $retorno = $this->post($pasarela, ['accion' => 'pagar'])->headers->get('Location');
+        $this->actingAs($paciente)->get($retorno);
+
+        return Cita::findOrFail($reserva->id_cita);
     }
 
     protected function sinJavascript(string $html): void

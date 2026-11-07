@@ -122,16 +122,24 @@ class MisCitasTest extends TestCase
 
         $respuesta = $this->actingAs($this->paciente)->post(route('mis-citas.store'), $this->solicitud());
 
-        $cita = Cita::sole();
-        $respuesta->assertRedirect(route('mis-citas.show', $cita))->assertSessionHas('status', "Tu cita {$cita->codigo} quedó registrada en estado «Programada».");
+        // Primero paga: hasta entonces es una reserva y no aparece en «Mis citas».
+        $reserva = $this->ultimaReserva();
+        $respuesta->assertRedirect(route('mis-citas.reserva', $reserva));
+        $this->assertNull(Cita::first());
+        $this->actingAs($this->paciente)->get(route('mis-citas.index'))->assertDontSee($reserva->codigo);
+        $this->actingAs($this->paciente)->get(route('mis-citas.show', $reserva->id_cita))->assertNotFound();
+        $this->sinJavascript($this->actingAs($this->paciente)->get(route('mis-citas.reserva', $reserva))->assertOk()
+            ->assertSee('Pagar con tarjeta')->assertSee('Pagar con QR')->assertSee('Bs 150,00')->getContent());
+
+        $cita = $this->pagarReserva($this->paciente);
         $this->assertSame($this->paciente->id, (int) $cita->id_paciente);
         $this->assertSame($this->medico->id, (int) $cita->id_medico);
-        $this->assertSame([$this->lunes, '09:00:00', '09:30:00', Cita::PROGRAMADA, 'Control anual'],
+        $this->assertSame([$this->lunes, '09:00:00', '09:30:00', Cita::CONFIRMADA, 'Control anual'],
             [substr($cita->fecha_cita, 0, 10), $cita->hora_inicio, $cita->hora_fin, $cita->estado, $cita->motivo]);
-        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $cita->id_cita, 'estado_nuevo' => Cita::PROGRAMADA, 'registrado_por' => $this->paciente->id]);
+        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $cita->id_cita, 'estado_nuevo' => Cita::PENDIENTE_PAGO, 'registrado_por' => $this->paciente->id]);
 
         $this->actingAs($this->paciente)->get(route('mis-citas.show', $cita))
-            ->assertOk()->assertSee($cita->codigo)->assertSee('Programada')->assertSee('Medico01 Prueba')->assertSee('Cardiología');
+            ->assertOk()->assertSee($cita->codigo)->assertSee('Confirmada')->assertSee('Medico01 Prueba')->assertSee('Cardiología');
     }
 
     public function test_no_puede_registrar_citas_a_nombre_de_otro_paciente(): void
@@ -139,8 +147,8 @@ class MisCitasTest extends TestCase
         $this->actingAs($this->paciente)->post(route('mis-citas.store'), $this->solicitud(['id_paciente' => $this->otroPaciente->id]))
             ->assertSessionHasNoErrors();
 
-        $this->assertSame($this->paciente->id, (int) Cita::sole()->id_paciente);
-        $this->assertSame(0, Cita::where('id_paciente', $this->otroPaciente->id)->count());
+        $this->assertSame($this->paciente->id, (int) $this->ultimaReserva()->id_paciente);
+        $this->assertSame(0, Cita::conReservas()->where('id_paciente', $this->otroPaciente->id)->count());
     }
 
     public function test_rechaza_horarios_no_libres_conflictos_y_duplicados(): void
@@ -165,7 +173,8 @@ class MisCitasTest extends TestCase
         $this->actingAs($this->paciente)->post(route('mis-citas.store'), $this->solicitud(['franja' => $otroMedico->id . '|09:00']))
             ->assertSessionHasErrors(['franja' => 'El paciente ya tiene otra cita a esa hora.']);
 
-        $this->assertSame(1, Cita::where('id_paciente', $this->paciente->id)->count());
+        // La reserva pendiente de pago también cuenta para los duplicados y los conflictos.
+        $this->assertSame(1, Cita::conReservas()->where('id_paciente', $this->paciente->id)->count());
     }
 
     public function test_rechaza_datos_invalidos(): void
@@ -233,14 +242,15 @@ class MisCitasTest extends TestCase
         $recepcion = $this->cuenta('recepcion', 'Recepcionista');
 
         // Sin precio asignado no se muestra ninguno.
+        $this->cardiologia->update(['precio' => null]);
         $this->actingAs($this->paciente)->get(route('mis-citas.create', $consulta))->assertOk()->assertDontSee('Precio de la consulta');
         $this->actingAs($this->paciente)->get(route('mis-citas.show', $idCita))->assertOk()->assertDontSee('Precio de la consulta');
 
         $this->cardiologia->update(['precio' => '250']);
 
-        $this->actingAs($this->paciente)->get(route('mis-citas.create', $consulta))->assertSee('Precio de la consulta: Bs 250.00');
-        $this->actingAs($this->paciente)->get(route('mis-citas.show', $idCita))->assertSee('Bs 250.00');
-        $this->actingAs($recepcion)->get(route('citas.show', $idCita))->assertOk()->assertSee('Bs 250.00');
+        $this->actingAs($this->paciente)->get(route('mis-citas.create', $consulta))->assertSee('Precio de la consulta: Bs 250,00');
+        $this->actingAs($this->paciente)->get(route('mis-citas.show', $idCita))->assertSee('Bs 250,00');
+        $this->actingAs($recepcion)->get(route('citas.show', $idCita))->assertOk()->assertSee('Bs 250,00');
     }
 
     // --- Menú --------------------------------------------------------------------

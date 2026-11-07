@@ -102,7 +102,7 @@ class PacienteController extends Controller implements HasMiddleware
         $paciente->load(['usuario', 'informacionMedica', 'contactosEmergencia']);
 
         // Tablas sin modelo propio todavía: se consultan solo para mostrarlas.
-        $citas = DB::table('citas')
+        $citas = Cita::sinReservas(DB::table('citas'))
             ->leftJoin('users as medico', 'medico.id', '=', 'citas.id_medico')
             ->leftJoin('especialidad', 'especialidad.id_especialidad', '=', 'citas.id_especialidad')
             ->where('citas.id_paciente', $paciente->id_paciente)
@@ -115,7 +115,7 @@ class PacienteController extends Controller implements HasMiddleware
                 'especialidad.nombre as especialidad',
             ]);
 
-        $totalCitas = DB::table('citas')->where('id_paciente', $paciente->id_paciente)->count();
+        $totalCitas = Cita::where('id_paciente', $paciente->id_paciente)->count();
 
         $bloqueos = DB::table('bloqueo_paciente')
             ->where('id_paciente', $paciente->id_paciente)

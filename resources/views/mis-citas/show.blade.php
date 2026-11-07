@@ -2,6 +2,8 @@
 use Illuminate\Support\Carbon;
 
 $medico = $cita->medico->usuario;
+$pagado = $cita->pagos->firstWhere('estado_pago', \App\Models\Pago::PAGADO);
+$pagoSimulado = config('pagos.pasarela') !== 'stripe';
 @endphp
 
 <x-app-layout>
@@ -32,6 +34,9 @@ $medico = $cita->medico->usuario;
 
                             <h2 class="section-title">¿Cancelar la cita {{ $cita->codigo }}?</h2>
                             <p class="section-text">La cita quedará como «Cancelada» y ese horario volverá a estar disponible. Se conserva en tu historial.</p>
+                            @if ($pagado)
+                                <p class="section-text">Esta cita ya está pagada: el importe no se devuelve automáticamente. Consulta en recepción.</p>
+                            @endif
 
                             <div class="modal__field">
                                 <x-input-label for="motivo_cancelacion">Motivo de la cancelación <span class="required-mark" aria-hidden="true">*</span></x-input-label>
@@ -61,7 +66,7 @@ $medico = $cita->medico->usuario;
                     <div><dt>Médico</dt><dd>{{ $medico->nombre }} {{ $medico->apellido }}</dd></div>
                     <div><dt>Especialidad</dt><dd>{{ $cita->especialidad->nombre }}</dd></div>
                     @if ($cita->especialidad->precio !== null)
-                        <div><dt>Precio de la consulta</dt><dd>Bs {{ number_format((float) $cita->especialidad->precio, 2) }}</dd></div>
+                        <div><dt>Precio de la consulta</dt><dd>Bs {{ number_format((float) $cita->especialidad->precio, 2, ',', '.') }}</dd></div>
                     @endif
                     <div><dt>Fecha</dt><dd>{{ Str::ucfirst(Carbon::parse($cita->fecha_cita)->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY')) }}</dd></div>
                     <div><dt>Hora</dt><dd>{{ substr($cita->hora_inicio, 0, 5) }}–{{ substr($cita->hora_fin, 0, 5) }}</dd></div>
@@ -88,5 +93,42 @@ $medico = $cita->medico->usuario;
                 @endforelse
             </x-admin.card>
         </div>
+
+        <x-admin.card title="Pago de la consulta">
+            @if ($pagado)
+                <dl class="detail-list">
+                    <div><dt>Estado</dt><dd>Pagado</dd></div>
+                    <div><dt>Importe</dt><dd>Bs {{ number_format((float) $pagado->monto, 2, ',', '.') }}</dd></div>
+                    <div><dt>Método</dt><dd>{{ $pagado->metodo_de_pago ?? '—' }}</dd></div>
+                    <div><dt>Fecha de pago</dt><dd>{{ $pagado->fecha_pago?->format('d/m/Y H:i') ?? '—' }}</dd></div>
+                    <div><dt>N.º de comprobante</dt><dd>{{ $pagado->id_pago }}</dd></div>
+                </dl>
+            @elseif ($cita->admitePagoEnLinea())
+                <p class="section-text">Importe a pagar: <strong>Bs {{ number_format($cita->precioCobrable(), 2, ',', '.') }}</strong>. Al pagar, tu cita queda confirmada.</p>
+                <div class="form-actions">
+                    <form method="POST" action="{{ route('mis-citas.pagar', $cita) }}">
+                        @csrf
+                        <button type="submit" class="btn btn--primary">Pagar con tarjeta</button>
+                    </form>
+                    <form method="POST" action="{{ route('mis-citas.pagar.qr', $cita) }}">
+                        @csrf
+                        <button type="submit" class="btn btn--secondary">Pagar con QR</button>
+                    </form>
+                </div>
+                <p class="field-hint">«Pagar con QR» muestra un código para escanear con tu celular y pagar desde ahí.</p>
+                <p class="field-hint">
+                    @if ($pagoSimulado)
+                        Modo de prueba: el pago en línea es simulado y no cobra dinero real.
+                    @else
+                        Pagarás en la página segura de la pasarela; la clínica no ve ni guarda los datos de tu tarjeta.
+                    @endif
+                    También puedes pagar en recepción.
+                </p>
+            @elseif (in_array($cita->estado, \App\Models\Cita::ESTADOS_CANCELABLES, true) && $cita->precioCobrable() === null)
+                <p class="muted">Esta especialidad todavía no tiene precio registrado. Consulta el importe en recepción.</p>
+            @else
+                <p class="muted">No hay un pago registrado para esta cita.</p>
+            @endif
+        </x-admin.card>
     </div>
 </x-app-layout>

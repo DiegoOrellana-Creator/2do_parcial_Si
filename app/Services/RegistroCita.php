@@ -7,6 +7,7 @@ use App\Models\Especialidad;
 use App\Models\HistorialEstadoCita;
 use App\Models\Medico;
 use App\Models\Paciente;
+use App\Models\Pago;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -16,12 +17,16 @@ use Illuminate\Validation\ValidationException;
 /**
  * Registro y reprogramación de citas con todas las reglas de negocio. Lo usan la recepción
  * (Gestión de citas) y el propio paciente (Solicitar cita), para que apliquen exactamente lo mismo.
+ * Una cita nueva primero se cobra: registrar() crea una reserva «Pendiente de pago» que aparta la
+ * franja unos minutos, y el pago (Pagos\RegistroPago) la convierte en la cita.
  */
 class RegistroCita
 {
     public function __construct(private Disponibilidad $disponibilidad) {}
 
     /**
+     * Reserva la franja hasta que se pague (Cita::PENDIENTE_PAGO). La especialidad debe tener precio.
+     *
      * @param  bool  $unaPorMedicoYDia  además, rechaza una segunda cita pendiente del paciente con
      *                                  el mismo médico el mismo día (solicitudes del paciente).
      *
@@ -30,6 +35,8 @@ class RegistroCita
     public function registrar(int $idPaciente, int $idMedico, int $idEspecialidad, CarbonImmutable $fecha, string $hora,
         ?string $motivo, int $registradoPor, bool $unaPorMedicoYDia = false): Cita
     {
+        $this->anularReservasVencidas();
+
         return DB::transaction(function () use ($idPaciente, $idMedico, $idEspecialidad, $fecha, $hora, $motivo, $registradoPor, $unaPorMedicoYDia) {
             // Bloqueo en orden fijo (médico, luego paciente): dos registros simultáneos para el
             // mismo médico o el mismo paciente se ejecutan uno después del otro.
@@ -38,6 +45,10 @@ class RegistroCita
             $especialidad = Especialidad::find($idEspecialidad);
 
             $fin = $this->comprobarReglas($medico, $paciente, $especialidad, $idMedico, $fecha, $hora);
+
+            if ($especialidad->precio === null || (float) $especialidad->precio <= 0) {
+                throw ValidationException::withMessages(['id_especialidad' => 'La especialidad no tiene precio registrado: no se puede cobrar la cita.']);
+            }
 
             if ($unaPorMedicoYDia) {
                 $this->comprobarDuplicada((int) $paciente->id_paciente, $idMedico, $fecha);
@@ -53,22 +64,22 @@ class RegistroCita
                 'hora_inicio' => $hora . ':00',
                 'hora_fin' => $fin . ':00',
                 'motivo' => $motivo,
-                'estado' => Cita::PROGRAMADA,
+                'estado' => Cita::PENDIENTE_PAGO,
                 'fecha_creacion' => $ahora,
             ]);
 
             HistorialEstadoCita::create([
                 'id_cita' => $cita->id_cita,
                 'estado_anterior' => null,
-                'estado_nuevo' => Cita::PROGRAMADA,
+                'estado_nuevo' => Cita::PENDIENTE_PAGO,
                 'fecha_hora' => $ahora,
-                'motivo' => 'Cita registrada.',
+                'motivo' => 'Horario reservado: pendiente de pago.',
                 'registrado_por' => $registradoPor,
             ]);
 
             $origen = $registradoPor === (int) $paciente->id_paciente ? 'solicitada por el propio paciente' : 'registrada por el personal';
             Auditoria::registrar(Auditoria::CREAR, Auditoria::CITAS, (int) $cita->id_cita,
-                "Cita {$cita->codigo} {$origen}: {$fecha->format('d/m/Y')} {$hora}–{$fin}, {$especialidad->nombre}, "
+                "Reserva {$cita->codigo} pendiente de pago, {$origen}: {$fecha->format('d/m/Y')} {$hora}–{$fin}, {$especialidad->nombre}, "
                 . "paciente «{$paciente->usuario->nombre} {$paciente->usuario->apellido}», médico «{$medico->usuario->nombre} {$medico->usuario->apellido}».", $registradoPor);
 
             return $cita;
@@ -168,15 +179,74 @@ class RegistroCita
     }
 
     /**
+     * Anula una reserva que todavía no se pagó: la franja vuelve a quedar libre. No es una cita,
+     * así que no se «cancela»: queda como «Reserva anulada» para el registro.
+     *
+     * @return array{status?: string, error?: string}
+     */
+    public function anularReserva(Cita $reserva, string $motivo, ?int $registradoPor): array
+    {
+        return DB::transaction(function () use ($reserva, $motivo, $registradoPor) {
+            $fila = Cita::conReservas()->whereKey($reserva->id_cita)->lockForUpdate()->first();
+
+            if (! $fila?->esReserva()) {
+                return ['error' => 'La reserva ya no está pendiente de pago.'];
+            }
+            if ($fila->estaPagada()) {
+                return ['error' => 'La reserva ya está pagada.'];
+            }
+
+            $this->marcarAnulada($fila, $motivo, $registradoPor);
+
+            return ['status' => 'Reserva anulada: el horario vuelve a estar disponible y no se realizó ningún cobro.'];
+        });
+    }
+
+    /**
+     * Las reservas cuyo plazo de pago pasó quedan anuladas (sus intentos de pago, como fallidos).
+     * Disponibilidad ya no las cuenta aunque no se llame a este método: aquí solo se dejan en orden.
+     */
+    public function anularReservasVencidas(): int
+    {
+        $vencidas = Cita::conReservas()->where('estado', Cita::PENDIENTE_PAGO)
+            ->where('fecha_creacion', '<=', now()->subMinutes(Cita::minutosReserva()))
+            ->whereDoesntHave('pagos', fn ($q) => $q->where('estado_pago', Pago::PAGADO))
+            ->get();
+
+        foreach ($vencidas as $reserva) {
+            DB::transaction(fn () => $this->marcarAnulada($reserva, 'El plazo para pagar venció.', null));
+        }
+
+        return $vencidas->count();
+    }
+
+    private function marcarAnulada(Cita $reserva, string $motivo, ?int $registradoPor): void
+    {
+        $reserva->update(['estado' => Cita::RESERVA_ANULADA]);
+        Pago::where('id_cita', $reserva->id_cita)->where('estado_pago', Pago::PENDIENTE)->update(['estado_pago' => Pago::FALLIDO]);
+
+        HistorialEstadoCita::create([
+            'id_cita' => $reserva->id_cita,
+            'estado_anterior' => Cita::PENDIENTE_PAGO,
+            'estado_nuevo' => Cita::RESERVA_ANULADA,
+            'fecha_hora' => now(),
+            'motivo' => $motivo,
+            'registrado_por' => $registradoPor,
+        ]);
+        Auditoria::registrar(Auditoria::CAMBIO_ESTADO, Auditoria::CITAS, (int) $reserva->id_cita,
+            "Reserva {$reserva->codigo} anulada sin pago. {$motivo}", $registradoPor);
+    }
+
+    /**
      * @throws ValidationException si el paciente ya tiene otra cita pendiente con ese médico ese día.
      */
     private function comprobarDuplicada(int $idPaciente, int $idMedico, CarbonImmutable $fecha, ?int $exceptoCita = null): void
     {
-        $duplicada = Cita::where('id_paciente', $idPaciente)
+        $duplicada = Cita::soloQueOcupan(Cita::conReservas()->where('id_paciente', $idPaciente))
             ->when($exceptoCita, fn ($q) => $q->where('id_cita', '<>', $exceptoCita))
             ->where('id_medico', $idMedico)
             ->where('fecha_cita', $fecha->toDateString())
-            ->whereIn('estado', Cita::ESTADOS_CANCELABLES)
+            ->whereIn('estado', [...Cita::ESTADOS_CANCELABLES, Cita::PENDIENTE_PAGO])
             ->exists();
 
         if ($duplicada) {
@@ -219,10 +289,10 @@ class RegistroCita
             $falla('franja', $motivoNoLibre);
         }
 
-        $pacienteOcupado = Cita::where('id_paciente', $paciente->id_paciente)
+        // También cuenta una reserva suya que todavía espera el pago.
+        $pacienteOcupado = Cita::soloQueOcupan(Cita::conReservas()->where('id_paciente', $paciente->id_paciente))
             ->when($exceptoCita, fn ($q) => $q->where('id_cita', '<>', $exceptoCita))
             ->where('fecha_cita', $fecha->toDateString())
-            ->where('estado', '<>', Cita::CANCELADA)
             ->where('hora_inicio', '<', $fin . ':00')
             ->where('hora_fin', '>', $hora . ':00')
             ->exists();
@@ -246,7 +316,7 @@ class RegistroCita
     {
         do {
             $codigo = 'CIT-' . $fecha->format('Ymd') . '-' . Str::upper(Str::random(5));
-        } while (Cita::where('codigo', $codigo)->exists());
+        } while (Cita::conReservas()->where('codigo', $codigo)->exists());
 
         return $codigo;
     }

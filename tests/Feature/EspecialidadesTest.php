@@ -176,8 +176,8 @@ class EspecialidadesTest extends TestCase
         $sinPrecio = $this->especialidad('Geriatría');
 
         $this->actingAs($this->admin)->get(route('especialidades.index'))
-            ->assertOk()->assertSee('Bs 1,250.50')->assertSee('Sin precio');
-        $this->actingAs($this->admin)->get(route('especialidades.show', $conPrecio))->assertSee('Bs 1,250.50');
+            ->assertOk()->assertSee('Bs 1.250,50')->assertSee('Sin precio');
+        $this->actingAs($this->admin)->get(route('especialidades.show', $conPrecio))->assertSee('Bs 1.250,50');
         $this->actingAs($this->admin)->get(route('especialidades.show', $sinPrecio))->assertSee('Sin precio');
         $this->actingAs($this->admin)->get(route('especialidades.create'))->assertOk()->assertSee('name="precio"', false);
         $this->actingAs($this->admin)->get(route('especialidades.edit', $conPrecio))->assertOk()->assertSee('value="1250.50"', false);
@@ -190,7 +190,7 @@ class EspecialidadesTest extends TestCase
             '0' => 'El precio debe ser mayor que 0.',
             '-10' => 'El precio debe ser mayor que 0.',
             '10.555' => 'El precio puede tener como máximo 2 decimales.',
-            '100000000' => 'El precio es demasiado alto.',
+            '500.01' => 'El precio no debe superar los Bs 500.',
         ];
 
         foreach ($casos as $precio => $mensaje) {

@@ -111,14 +111,14 @@ class CitaController extends Controller implements HasMiddleware
             $request->user()->id,
         );
 
+        // La cita se genera al cobrarla: hasta entonces el horario queda reservado.
         return redirect()
-            ->route('citas.show', $cita)
-            ->with('status', "Cita {$cita->codigo} registrada correctamente.");
+            ->route('citas.cobro', $cita);
     }
 
     public function show(Cita $cita): View
     {
-        $cita->load(['paciente.usuario', 'medico.usuario', 'especialidad', 'historial.registradoPor', 'canceladoPor']);
+        $cita->load(['paciente.usuario', 'medico.usuario', 'especialidad', 'historial.registradoPor', 'canceladoPor', 'pagos']);
 
         return view('citas.show', compact('cita'));
     }

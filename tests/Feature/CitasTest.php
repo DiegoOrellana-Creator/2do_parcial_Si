@@ -105,14 +105,26 @@ class CitasTest extends TestCase
     {
         $respuesta = $this->registrar($this->admin)->assertSessionHasNoErrors();
 
+        // Primero es una reserva: la cita no existe hasta cobrarla.
+        $reserva = $this->ultimaReserva();
+        $respuesta->assertRedirect(route('citas.cobro', $reserva));
+        $this->assertNull(Cita::first());
+        $this->actingAs($this->admin)->get(route('citas.show', $reserva->id_cita))->assertNotFound();
+        $this->actingAs($this->admin)->get(route('citas.index'))->assertDontSee($reserva->codigo);
+        $this->actingAs($this->admin)->get(route('citas.cobro', $reserva))->assertOk()->assertSee('Bs 150,00')->assertSee('Mostrar QR de pago');
+
+        $this->actingAs($this->admin)->post(route('citas.pago', $reserva), ['metodo' => 'Efectivo'])
+            ->assertRedirect(route('citas.show', $reserva->id_cita))
+            ->assertSessionHas('status', "Pago de Bs 150,00 registrado: se generó la cita {$reserva->codigo}.");
+
         $cita = Cita::firstOrFail();
-        $respuesta->assertRedirect(route('citas.show', $cita))->assertSessionHas('status', "Cita {$cita->codigo} registrada correctamente.");
-
         $this->assertMatchesRegularExpression('/^CIT-\d{8}-[A-Z0-9]{5}$/', $cita->codigo);
-        $this->assertSame([$this->lunes, '08:00:00', '08:30:00', 'Programada', 'Control'], [$cita->fecha_cita, $cita->hora_inicio, $cita->hora_fin, $cita->estado, $cita->motivo]);
-        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $cita->id_cita, 'estado_anterior' => null, 'estado_nuevo' => 'Programada', 'registrado_por' => $this->admin->id]);
+        $this->assertSame([$this->lunes, '08:00:00', '08:30:00', 'Confirmada', 'Control'], [$cita->fecha_cita, $cita->hora_inicio, $cita->hora_fin, $cita->estado, $cita->motivo]);
+        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $cita->id_cita, 'estado_anterior' => null, 'estado_nuevo' => 'Pendiente de pago', 'registrado_por' => $this->admin->id]);
+        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $cita->id_cita, 'estado_anterior' => 'Pendiente de pago', 'estado_nuevo' => 'Confirmada', 'motivo' => 'Pago en ventanilla recibido (Efectivo). Cita generada.']);
+        $this->assertDatabaseHas('pago', ['id_cita' => $cita->id_cita, 'estado_pago' => 'Pagado', 'metodo_de_pago' => 'Efectivo']);
 
-        $this->actingAs($this->admin)->get(route('citas.show', $cita))->assertOk()->assertSee($cita->codigo)->assertSee('Cita registrada.')->assertSee('Cancelar cita');
+        $this->actingAs($this->admin)->get(route('citas.show', $cita))->assertOk()->assertSee($cita->codigo)->assertSee('Cita generada.')->assertSee('Cancelar cita');
     }
 
     public function test_no_permite_dos_citas_en_la_misma_franja_del_medico(): void
@@ -196,7 +208,7 @@ class CitasTest extends TestCase
     public function test_cancela_una_cita_y_libera_la_franja(): void
     {
         $this->registrar($this->admin);
-        $cita = Cita::first();
+        $cita = $this->cobrarReserva($this->admin);
 
         $this->actingAs($this->admin)->patch(route('citas.cancelar', $cita), ['motivo_cancelacion' => ''])
             ->assertSessionHasErrorsIn('cancelacion', ['motivo_cancelacion' => 'Indica el motivo de la cancelación.']);
@@ -208,7 +220,7 @@ class CitasTest extends TestCase
         $cita->refresh();
         $this->assertSame(['Cancelada', 'El paciente avisó que no podrá asistir.', $this->admin->id], [$cita->estado, $cita->motivo_cancelacion, (int) $cita->cancelado_por]);
         $this->assertNotNull($cita->fecha_cancelacion);
-        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $cita->id_cita, 'estado_anterior' => 'Programada', 'estado_nuevo' => 'Cancelada']);
+        $this->assertDatabaseHas('historial_estado_cita', ['id_cita' => $cita->id_cita, 'estado_anterior' => 'Confirmada', 'estado_nuevo' => 'Cancelada']);
         $this->assertDatabaseCount('citas', 1);
 
         // La franja vuelve a estar libre y se puede volver a reservar.
@@ -236,6 +248,9 @@ class CitasTest extends TestCase
         $this->actingAs($this->admin)->get(route('citas.index'))->assertOk()->assertSee('No hay citas que coincidan con los filtros.');
 
         $this->registrar($this->admin);
+        // Una reserva sin cobrar todavía no aparece en el listado.
+        $this->actingAs($this->admin)->get(route('citas.index'))->assertSee('No hay citas que coincidan con los filtros.');
+        $this->cobrarReserva($this->admin);
         $otro = $this->pacienteDe('ana');
         $this->insertarCita($otro, $this->medico, $this->cardiologia, $this->lunes, '09:00', '09:30', 'Cancelada');
 
@@ -252,7 +267,7 @@ class CitasTest extends TestCase
         DB::table('usuario_rol')->insert(['id_usuario' => $sinPermisos->id, 'id_rol' => DB::table('rol')->where('nombre', 'Auditor')->value('id_rol')]);
 
         $this->registrar($recepcion)->assertSessionHasNoErrors();
-        $cita = Cita::first();
+        $cita = $this->cobrarReserva($recepcion);
         $this->actingAs($recepcion)->patch(route('citas.cancelar', $cita), ['motivo_cancelacion' => 'Motivo'])->assertSessionHas('status');
 
         foreach ([$this->paciente, $this->medico] as $usuario) {
@@ -268,7 +283,9 @@ class CitasTest extends TestCase
     public function test_las_vistas_no_contienen_javascript_y_usan_csrf(): void
     {
         $this->registrar($this->admin);
-        $cita = Cita::first();
+        $cobro = route('citas.cobro', $this->ultimaReserva());
+        $this->sinJavascript($this->actingAs($this->admin)->get($cobro)->assertOk()->getContent());
+        $cita = $this->cobrarReserva($this->admin);
 
         foreach ([route('citas.index'), route('citas.show', $cita), route('disponibilidad.index', ['especialidad' => $this->cardiologia->id_especialidad, 'fecha' => $this->lunes])] as $url) {
             $this->sinJavascript($this->actingAs($this->admin)->get($url)->assertOk()->getContent());

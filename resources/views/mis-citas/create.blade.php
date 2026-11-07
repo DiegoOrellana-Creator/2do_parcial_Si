@@ -4,12 +4,14 @@
             <div>
                 <a href="{{ route('mis-citas.index') }}" class="back-link">← Mis citas</a>
                 <h1 class="page-title">Solicitar cita</h1>
-                <p class="page-subtitle">1. Elige especialidad y fecha · 2. Elige médico y horario, y confirma la solicitud</p>
+                <p class="page-subtitle">1. Elige especialidad y fecha · 2. Elige médico y horario · 3. Paga la consulta para generar tu cita</p>
             </div>
         </div>
     </x-slot>
 
     <div class="page">
+        <x-admin.flash />
+
         @if ($paciente->bloqueado)
             <div class="notice notice--error" role="alert">
                 Tu cuenta tiene la solicitud de citas bloqueada. Contacta con la clínica para reservar una cita.
@@ -23,7 +25,7 @@
         @if ($resultados !== null && ! $paciente->bloqueado)
             <x-admin.card title="2. Médico y horario" :subtitle="$especialidad->nombre . ' · ' . Str::ucfirst($consulta['fecha']->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY'))">
                 @if ($especialidad->precio !== null)
-                    <p class="muted">Precio de la consulta: Bs {{ number_format((float) $especialidad->precio, 2) }}</p>
+                    <p class="muted">Precio de la consulta: Bs {{ number_format((float) $especialidad->precio, 2, ',', '.') }}</p>
                 @endif
 
                 @php($hayLibres = $resultados->contains(fn ($r) => $r['libres']->isNotEmpty()))
@@ -83,7 +85,7 @@
 
                         <div class="form-actions form-actions--end">
                             <a href="{{ route('mis-citas.index') }}" class="btn btn--secondary">Cancelar</a>
-                            <x-primary-button>Solicitar cita</x-primary-button>
+                            <x-primary-button>Continuar al pago</x-primary-button>
                         </div>
                     </form>
                 @endif

@@ -249,23 +249,26 @@ class BitacoraTest extends TestCase
         $base = ['id_especialidad' => $this->cardiologia->id_especialidad, 'fecha' => $lunes];
 
         $this->actingAs($this->admin)->post(route('citas.store'), $base + ['id_paciente' => $paciente->id, 'franja' => $medico->id . '|08:00'])->assertSessionHasNoErrors();
+        $cita = $this->cobrarReserva($this->admin);
         $otroMedico = $this->medicoCon('medico02', $this->cardiologia);
         $this->actingAs($paciente)->post(route('mis-citas.store'), $base + ['franja' => $otroMedico->id . '|09:00'])->assertSessionHasNoErrors();
         // Franja ocupada: rechazada dentro de la transacción, sin registro.
         $this->actingAs($paciente)->post(route('mis-citas.store'), $base + ['franja' => $medico->id . '|08:00'])->assertSessionHasErrors('franja');
 
-        $cita = Cita::orderBy('id_cita')->first();
         $this->actingAs($this->admin)->patch(route('citas.cancelar', $cita), ['motivo_cancelacion' => 'El paciente avisó.'])->assertSessionHas('status');
         // Segundo intento de cancelar: ya no es cancelable, no se duplica el evento.
         $this->actingAs($this->admin)->patch(route('citas.cancelar', $cita), ['motivo_cancelacion' => 'Otra vez.'])->assertSessionHas('error');
 
-        $this->assertSame(['Creación · Citas', 'Creación · Citas', 'Cambio de estado · Citas'], $this->eventos());
-        [$personal, $propia, $cancelacion] = Bitacora::orderBy('id_bitacora')->get();
-        $this->assertStringContainsString('registrada por el personal', $personal->detalle);
+        // Reserva, cobro (que genera la cita), reserva del paciente y cancelación.
+        $this->assertSame(['Creación · Citas', 'Pago · Pagos', 'Creación · Citas', 'Creación · Citas', 'Cambio de estado · Citas'], $this->eventos());
+        [$personal, $cobro, $generada, $propia, $cancelacion] = Bitacora::orderBy('id_bitacora')->get();
+        $this->assertStringContainsString('pendiente de pago, registrada por el personal', $personal->detalle);
+        $this->assertStringContainsString('Pago en ventanilla', $cobro->detalle);
+        $this->assertSame("Cita {$cita->codigo} generada tras el pago: Pendiente de pago → Confirmada.", $generada->detalle);
         $this->assertSame($this->admin->id, (int) $personal->id_usuario);
         $this->assertStringContainsString('solicitada por el propio paciente', $propia->detalle);
         $this->assertSame($paciente->id, (int) $propia->id_usuario);
-        $this->assertSame("Cita {$cita->codigo}: Programada → Cancelada. Motivo: El paciente avisó.", $cancelacion->detalle);
+        $this->assertSame("Cita {$cita->codigo}: Confirmada → Cancelada. Motivo: El paciente avisó.", $cancelacion->detalle);
         $this->assertSame((int) $cita->id_cita, (int) $cancelacion->id_registro);
     }
 

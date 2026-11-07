@@ -3,6 +3,7 @@ use Illuminate\Support\Carbon;
 
 $paciente = $cita->paciente->usuario;
 $medico = $cita->medico->usuario;
+$pagado = $cita->pagos->firstWhere('estado_pago', \App\Models\Pago::PAGADO);
 @endphp
 
 <x-app-layout>
@@ -78,6 +79,9 @@ $medico = $cita->medico->usuario;
                                     La cita de {{ $paciente->nombre }} {{ $paciente->apellido }} quedará como «Cancelada» y la franja volverá a estar disponible.
                                     La cita no se borra: se conserva con su historial.
                                 </p>
+                                @if ($pagado)
+                                    <p class="section-text">La cita ya está pagada (Bs {{ number_format((float) $pagado->monto, 2, ',', '.') }}): la devolución no es automática y queda a criterio de la clínica.</p>
+                                @endif
 
                                 <div class="modal__field">
                                     <x-input-label for="motivo_cancelacion">Motivo de la cancelación <span class="required-mark" aria-hidden="true">*</span></x-input-label>
@@ -109,7 +113,7 @@ $medico = $cita->medico->usuario;
                     <div><dt>Médico</dt><dd>{{ $medico->nombre }} {{ $medico->apellido }}</dd></div>
                     <div><dt>Especialidad</dt><dd>{{ $cita->especialidad->nombre }}</dd></div>
                     @if ($cita->especialidad->precio !== null)
-                        <div><dt>Precio de la consulta</dt><dd>Bs {{ number_format((float) $cita->especialidad->precio, 2) }}</dd></div>
+                        <div><dt>Precio de la consulta</dt><dd>Bs {{ number_format((float) $cita->especialidad->precio, 2, ',', '.') }}</dd></div>
                     @endif
                     <div><dt>Fecha</dt><dd>{{ Str::ucfirst(Carbon::parse($cita->fecha_cita)->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY')) }}</dd></div>
                     <div><dt>Hora</dt><dd>{{ substr($cita->hora_inicio, 0, 5) }}–{{ substr($cita->hora_fin, 0, 5) }}</dd></div>
@@ -137,5 +141,71 @@ $medico = $cita->medico->usuario;
                 @endforelse
             </x-admin.card>
         </div>
+
+        <x-admin.card title="Pagos" :subtitle="$pagado ? 'Cita pagada' : ($cita->precioCobrable() !== null ? 'Importe: Bs ' . number_format($cita->precioCobrable(), 2, ',', '.') : 'La especialidad no tiene precio registrado')" :padding="false">
+            @if ($cita->pagos->isEmpty())
+                <p class="muted card__body">Sin pagos ni intentos de pago registrados.</p>
+            @else
+                <div class="table-scroll">
+                    <table class="data-table data-table--compacta responsive-table">
+                        <caption class="sr-only">Pagos e intentos de pago de la cita</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">N.º</th>
+                                <th scope="col">Estado</th>
+                                <th scope="col">Importe</th>
+                                <th scope="col">Método</th>
+                                <th scope="col">Referencia</th>
+                                <th scope="col">Fecha de pago</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($cita->pagos as $pago)
+                                <tr>
+                                    <td data-label="N.º">{{ $pago->id_pago }}</td>
+                                    <td data-label="Estado" class="cell-strong">{{ $pago->estado_pago }}</td>
+                                    <td data-label="Importe">Bs {{ number_format((float) $pago->monto, 2, ',', '.') }}</td>
+                                    <td data-label="Método">{{ $pago->metodo_de_pago ?? '—' }}</td>
+                                    <td data-label="Referencia" class="cell-ref">{{ $pago->id_transaccion ?? '—' }}</td>
+                                    <td data-label="Fecha de pago">{{ $pago->fecha_pago?->format('d/m/Y H:i') ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            @can('pagos.registrar')
+                @if ($cita->admitePagoEnVentanilla())
+                    <form method="POST" action="{{ route('citas.pago', $cita) }}" class="card__body search-form">
+                        @csrf
+                        <div class="search-form__field">
+                            <label for="metodo" class="form-label">Método de pago</label>
+                            <select id="metodo" name="metodo" required class="form-input" @if ($errors->pago->has('metodo')) aria-invalid="true" @endif>
+                                @foreach (\App\Services\Pagos\RegistroPago::METODOS_VENTANILLA as $metodo)
+                                    <option value="{{ $metodo }}" @selected(old('metodo') === $metodo)>{{ $metodo }}</option>
+                                @endforeach
+                                <option value="{{ \App\Services\Pagos\RegistroPago::TARJETA }}" @selected(old('metodo') === \App\Services\Pagos\RegistroPago::TARJETA)>Tarjeta (abre la pasarela de pago)</option>
+                            </select>
+                            <x-input-error :messages="$errors->pago->get('metodo')" />
+                        </div>
+                        <div class="search-form__field">
+                            <label for="comprobante" class="form-label">N.º de comprobante (opcional)</label>
+                            <input id="comprobante" name="comprobante" type="text" maxlength="100" value="{{ old('comprobante') }}" class="form-input" @if ($errors->pago->has('comprobante')) aria-invalid="true" @endif>
+                            <x-input-error :messages="$errors->pago->get('comprobante')" />
+                        </div>
+                        <div class="search-form__field search-form__field--boton">
+                            <button type="submit" class="btn btn--primary">Registrar pago de Bs {{ number_format($cita->precioCobrable(), 2, ',', '.') }}</button>
+                        </div>
+                    </form>
+
+                    <form method="POST" action="{{ route('citas.pago.qr.generar', $cita) }}" class="card__body">
+                        @csrf
+                        <button type="submit" class="btn btn--secondary">Mostrar QR de pago</button>
+                        <p class="field-hint">El paciente lo escanea con su celular y paga con tarjeta; el pago se registra solo.</p>
+                    </form>
+                @endif
+            @endcan
+        </x-admin.card>
     </div>
 </x-app-layout>

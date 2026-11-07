@@ -4,12 +4,14 @@
             <div>
                 <a href="{{ route('citas.index') }}" class="back-link">← Gestión de citas</a>
                 <h1 class="page-title">Registrar cita</h1>
-                <p class="page-subtitle">1. Consulta la disponibilidad · 2. Elige la franja, el paciente y registra la cita</p>
+                <p class="page-subtitle">1. Consulta la disponibilidad · 2. Elige la franja y el paciente · 3. Cobra la consulta para generar la cita</p>
             </div>
         </div>
     </x-slot>
 
     <div class="page">
+        <x-admin.flash />
+
         <x-admin.card title="1. Disponibilidad" :padding="false">
             @include('disponibilidad.partials.consulta', ['accion' => route('citas.create'), 'paciente' => $idPaciente])
         </x-admin.card>
@@ -86,7 +88,7 @@
 
                         <div class="form-actions form-actions--end">
                             <a href="{{ route('citas.index') }}" class="btn btn--secondary">Cancelar</a>
-                            <x-primary-button>Registrar cita</x-primary-button>
+                            <x-primary-button>Continuar al cobro</x-primary-button>
                         </div>
                     </form>
                 @endif

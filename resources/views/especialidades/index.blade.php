@@ -74,7 +74,7 @@
                                         @endif
                                     </td>
                                     <td data-label="Médicos">{{ $especialidad->total_medicos }}</td>
-                                    <td data-label="Precio">{{ $especialidad->precio !== null ? 'Bs ' . number_format((float) $especialidad->precio, 2) : 'Sin precio' }}</td>
+                                    <td data-label="Precio">{{ $especialidad->precio !== null ? 'Bs ' . number_format((float) $especialidad->precio, 2, ',', '.') : 'Sin precio' }}</td>
                                     <td data-label="Estado">@include('especialidades.partials.estado')</td>
                                     <td class="cell-actions">
                                         <a href="{{ route('especialidades.show', $especialidad) }}" class="btn btn--secondary btn--sm">

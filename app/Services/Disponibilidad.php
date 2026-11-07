@@ -47,11 +47,10 @@ class Disponibilidad
             return collect();
         }
 
-        $citas = DB::table('citas')
+        $citas = Cita::soloQueOcupan(DB::table('citas'))
             ->leftJoin('users as paciente', 'paciente.id', '=', 'citas.id_paciente')
             ->where('citas.id_medico', $idMedico)
             ->where('citas.fecha_cita', $fecha->toDateString())
-            ->where('citas.estado', '<>', Cita::CANCELADA)
             ->get(['citas.id_cita', 'citas.codigo', 'citas.hora_inicio', 'citas.hora_fin', 'citas.estado',
                 'paciente.nombre as paciente_nombre', 'paciente.apellido as paciente_apellido']);
 
