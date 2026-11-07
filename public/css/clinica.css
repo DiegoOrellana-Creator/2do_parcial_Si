@@ -2123,3 +2123,7 @@ fieldset[aria-invalid="true"] .checkbox-option {
 .modal__body .section-text + .section-text {
     margin-top: 0.5rem;
 }
+
+.permiso-modulo {
+    margin: 1rem 0 0.5rem;
+}

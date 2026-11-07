@@ -85,6 +85,17 @@ class User extends Authenticatable
      */
     protected ?array $codigosPermiso = null;
 
+    /** Permisos que comprueba la aplicación (ver AppServiceProvider). */
+    public const PERMISOS = [
+        'pacientes.ver', 'pacientes.crear', 'pacientes.editar',
+        'especialidades.ver', 'especialidades.crear', 'especialidades.editar', 'especialidades.eliminar',
+        'medicos.ver', 'medicos.crear', 'medicos.editar',
+        'horarios.ver', 'horarios.crear', 'horarios.editar', 'horarios.eliminar',
+        'disponibilidad.ver',
+        'citas.ver', 'citas.crear', 'citas.cancelar',
+        'agenda.ver',
+    ];
+
     public function tienePermiso(string $codigo): bool
     {
         if ($this->estado !== self::ESTADO_ACTIVO) {
@@ -156,6 +167,19 @@ class User extends Authenticatable
 
         return ! $this->esAdministrador()
             && (DB::table('recepcionista')->where('id_recepcionista', (int) $this->id)->exists() || $this->tieneRolActivo('Recepcionista'));
+    }
+
+    /**
+     * Perfil para mostrar en pantalla.
+     */
+    public function etiquetaPerfil(): string
+    {
+        return match ($this->perfil()) {
+            self::PERFIL_MEDICO => 'Médico',
+            self::PERFIL_PACIENTE => 'Paciente',
+            self::PERFIL_PERSONAL => $this->esAdministrador() ? 'Administrador' : ($this->esRecepcionista() ? 'Recepcionista' : 'Personal'),
+            default => 'Sin perfil',
+        };
     }
 
     /**

@@ -13,6 +13,8 @@ use App\Http\Controllers\MisCitasController;
 use App\Http\Controllers\MisConsultasController;
 use App\Http\Controllers\PacienteController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RolController;
+use App\Http\Controllers\UsuarioController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -63,6 +65,14 @@ Route::middleware(['auth', 'verified', 'perfil:' . User::PERFIL_PERSONAL])->grou
     Route::get('pacientes/{paciente}/citas', [PacienteController::class, 'citas'])->name('pacientes.citas');
     Route::get('citas/{cita}/reprogramar', [CitaController::class, 'reprogramar'])->name('citas.reprogramar');
     Route::patch('citas/{cita}/reprogramar', [CitaController::class, 'guardarReprogramacion'])->name('citas.reprogramar.guardar');
+    // Solo para el administrador (Gate «usuarios.gestionar»). Las cuentas no se borran.
+    Route::resource('usuarios', UsuarioController::class)
+        ->except(['show', 'destroy'])
+        ->parameters(['usuarios' => 'usuario']);
+    // Solo para el administrador (Gate «roles.gestionar»). Los roles no se borran.
+    Route::resource('roles', RolController::class)
+        ->except(['show', 'destroy'])
+        ->parameters(['roles' => 'rol']);
     // Solo lectura y solo para el administrador (Gate «bitacora.ver»).
     Route::get('bitacora', [BitacoraController::class, 'index'])->name('bitacora.index');
 });

@@ -25,17 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Permisos de los módulos: se conceden según la tabla `permiso`
         // a través de los roles activos del usuario (ver User::tienePermiso).
-        $permisos = [
-            'pacientes.ver', 'pacientes.crear', 'pacientes.editar',
-            'especialidades.ver', 'especialidades.crear', 'especialidades.editar', 'especialidades.eliminar',
-            'medicos.ver', 'medicos.crear', 'medicos.editar',
-            'horarios.ver', 'horarios.crear', 'horarios.editar', 'horarios.eliminar',
-            'disponibilidad.ver',
-            'citas.ver', 'citas.crear', 'citas.cancelar',
-            'agenda.ver',
-        ];
-
-        foreach ($permisos as $codigo) {
+        foreach (User::PERMISOS as $codigo) {
             Gate::define($codigo, fn (User $user) => $user->tienePermiso($codigo));
         }
 
@@ -50,6 +40,12 @@ class AppServiceProvider extends ServiceProvider
 
         // Desbloquear a un paciente: exclusivo del administrador.
         Gate::define('pacientes.desbloquear', fn (User $user) => $user->esAdministrador());
+
+        // Roles y permisos: exclusivo del administrador.
+        Gate::define('roles.gestionar', fn (User $user) => $user->esAdministrador());
+
+        // Usuarios: exclusivo del administrador.
+        Gate::define('usuarios.gestionar', fn (User $user) => $user->esAdministrador());
 
         // Bitácora: exclusiva del administrador (no depende de filas en `permiso`).
         Gate::define('bitacora.ver', fn (User $user) => $user->esAdministrador());

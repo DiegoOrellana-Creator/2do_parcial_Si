@@ -31,8 +31,8 @@ $menus = [
             ['label' => 'Reportes', 'route' => null, 'icon' => 'chart-bar'],
         ],
         'Administración' => [
-            ['label' => 'Usuarios', 'route' => null, 'icon' => 'user-circle'],
-            ['label' => 'Roles y permisos', 'route' => null, 'icon' => 'shield-check'],
+            ['label' => 'Usuarios', 'route' => 'usuarios.index', 'icon' => 'user-circle', 'can' => 'usuarios.gestionar'],
+            ['label' => 'Roles y permisos', 'route' => 'roles.index', 'icon' => 'shield-check', 'can' => 'roles.gestionar'],
             ['label' => 'Bitácora', 'route' => 'bitacora.index', 'icon' => 'document-text', 'can' => 'bitacora.ver'],
         ],
         'Mi cuenta' => [

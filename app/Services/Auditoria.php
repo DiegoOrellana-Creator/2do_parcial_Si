@@ -35,6 +35,10 @@ class Auditoria
 
     public const AGENDA = 'Agenda';
 
+    public const USUARIOS = 'Usuarios';
+
+    public const ROLES = 'Roles y permisos';
+
     // Acciones
     public const INICIO_SESION = 'Inicio de sesión';
 

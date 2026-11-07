@@ -20,7 +20,7 @@ class NavegacionTest extends TestCase
 
     /** Módulos del Ciclo 2: siguen en el menú, desactivados. */
     private const MODULOS_PENDIENTES = [
-        'Reportes', 'Usuarios', 'Roles y permisos',
+        'Reportes',
     ];
 
     protected function setUp(): void
@@ -108,7 +108,7 @@ class NavegacionTest extends TestCase
         $this->assertSame([
             route('dashboard'), route('pacientes.index'), route('medicos.index'), route('especialidades.index'),
             route('horarios.index'), route('disponibilidad.index'), route('citas.index'), route('agenda.index'),
-            route('bitacora.index'), route('profile.edit'),
+            route('usuarios.index'), route('roles.index'), route('bitacora.index'), route('profile.edit'),
         ], $enlaces[1]);
     }
 
