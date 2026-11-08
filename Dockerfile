@@ -5,23 +5,12 @@
 #
 # La configuración (APP_KEY, APP_URL, DB_*, etc.) se pasa como variables de entorno del
 # servicio; la imagen no contiene .env ni secretos. El contenedor no ejecuta migraciones.
+#
+# La interfaz es solo PHP/Blade con un CSS propio (public/css/clinica.css): no hay JavaScript
+# ni paso de compilación con Node/Vite.
 
 # ---------------------------------------------------------------------------
-# 1) Recursos de Vite (public/build). Vite 7 requiere Node 20.19+ o 22.12+.
-# ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS assets
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
-
-COPY vite.config.js postcss.config.js tailwind.config.js ./
-COPY resources ./resources
-RUN npm run build
-
-# ---------------------------------------------------------------------------
-# 2) Aplicación: PHP 8.2 + Apache
+# Aplicación: PHP 8.2 + Apache
 # ---------------------------------------------------------------------------
 FROM php:8.2-apache
 
@@ -50,9 +39,8 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction --no-progress
 
-# Código de la aplicación (ver .dockerignore) y recursos compilados
+# Código de la aplicación (ver .dockerignore)
 COPY . .
-COPY --from=assets /app/public/build ./public/build
 
 # Autoload optimizado; ejecuta package:discover sin los paquetes de desarrollo.
 RUN mkdir -p storage/app/public storage/framework/cache/data storage/framework/sessions \
